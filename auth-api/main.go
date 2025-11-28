@@ -37,8 +37,8 @@ func main() {
 		UserAPIAddress: userAPIAddress,
 		AllowedUserHashes: map[string]interface{}{
 			"admin_Admin123": nil,
-			"hng_HngTech":   nil,
-			"user_Password":   nil,
+			"hng_HngTech":    nil,
+			"user_Password":  nil,
 		},
 	}
 
@@ -65,6 +65,37 @@ func main() {
 	// Route => handler
 	e.GET("/version", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Auth API, written in Go\n")
+	})
+
+	e.GET("/health", func(c echo.Context) error {
+		// Check if users-api is reachable
+		req, err := http.NewRequest("GET", userAPIAddress+"/health", nil)
+		if err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"status": "unhealthy",
+				"error":  "failed to create request",
+			})
+		}
+
+		resp, err := userService.Client.Do(req)
+		if err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"status": "unhealthy",
+				"error":  "users-api unreachable",
+			})
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"status": "unhealthy",
+				"error":  "users-api unhealthy",
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{
+			"status": "healthy",
+		})
 	})
 
 	e.POST("/login", getLoginHandler(userService))

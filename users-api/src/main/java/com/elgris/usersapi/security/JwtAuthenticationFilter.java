@@ -20,12 +20,22 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+    
+    private boolean debugLogged = false;
 
     public void doFilter(final ServletRequest req, final ServletResponse res, final FilterChain chain)
             throws IOException, ServletException {
 
         final HttpServletRequest request = (HttpServletRequest) req;
         final HttpServletResponse response = (HttpServletResponse) res;
+        final String requestURI = request.getRequestURI();
+
+        // Skip JWT validation for health endpoint
+        if ("/health".equals(requestURI)) {
+            chain.doFilter(req, res);
+            return;
+        }
+
         final String authHeader = request.getHeader("authorization");
 
         if ("OPTIONS".equals(request.getMethod())) {
@@ -41,12 +51,28 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
             final String token = authHeader.substring(7);
 
             try {
+                // Debug logging (only once)
+                if (!debugLogged) {
+                    System.out.println("DEBUG: JWT Secret being used: " + jwtSecret);
+                    System.out.println("DEBUG: JWT Token received: " + token);
+                    debugLogged = true;
+                }
+                
                 final Claims claims = Jwts.parser()
                         .setSigningKey(jwtSecret.getBytes())
                         .parseClaimsJws(token)
                         .getBody();
                 request.setAttribute("claims", claims);
+                
+                System.out.println("DEBUG: JWT token validated successfully, username: " + claims.get("username"));
+                
+                // Set up Spring Security authentication context
+                org.springframework.security.core.Authentication authentication = 
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        claims.get("username"), null, java.util.Collections.emptyList());
+                org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (final SignatureException e) {
+                System.out.println("DEBUG: JWT signature validation failed: " + e.getMessage());
                 throw new ServletException("Invalid token");
             }
 
