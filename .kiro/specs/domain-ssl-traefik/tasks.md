@@ -79,7 +79,7 @@
   - Test frontend can communicate with APIs through Traefik
   - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 11. Add certificate storage volume to Docker Compose
+- [x] 11. Add certificate storage volume to Docker Compose
 
   - Create traefik-certs volume in docker-compose.yml
   - Mount volume to /letsencrypt in Traefik container
