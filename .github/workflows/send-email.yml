@@ -1,0 +1,73 @@
+name: Send Email Notification
+
+on:
+  workflow_call:
+    inputs:
+      recipient:
+        description: "Email recipient"
+        required: true
+        type: string
+      subject:
+        description: "Email subject"
+        required: true
+        type: string
+      message:
+        description: "Email message body"
+        required: true
+        type: string
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send email via AWS SES
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const AWS = require('aws-sdk');
+
+            const ses = new AWS.SES({ region: '${{ env.AWS_REGION || 'us-east-1' }}' });
+
+            const params = {
+              Source: '${{ secrets.SES_EMAIL_FROM }}',
+              Destination: {
+                ToAddresses: ['${{ inputs.recipient }}']
+              },
+              Message: {
+                Subject: {
+                  Data: '${{ inputs.subject }}',
+                  Charset: 'UTF-8'
+                },
+                Body: {
+                  Text: {
+                    Data: '${{ inputs.message }}',
+                    Charset: 'UTF-8'
+                  },
+                  Html: {
+                    Data: `
+                    <html>
+                      <body>
+                        <pre>${'${{ inputs.message }}'.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                        <hr>
+                        <small>
+                          <p>Repository: <a href="https://github.com/${{ github.repository }}">${{ github.repository }}</a></p>
+                          <p>Workflow: <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Run</a></p>
+                          <p>Timestamp: ${new Date().toISOString()}</p>
+                        </small>
+                      </body>
+                    </html>
+                    `,
+                    Charset: 'UTF-8'
+                  }
+                }
+              }
+            };
+
+            try {
+              const result = await ses.sendEmail(params).promise();
+              console.log('Email sent successfully:', result.MessageId);
+            } catch (error) {
+              console.error('Failed to send email:', error);
+              process.exit(1);
+            }

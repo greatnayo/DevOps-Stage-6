@@ -1,0 +1,393 @@
+name: Infrastructure - Terraform & Ansible
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "infra/terraform/**"
+      - "infra/ansible/**"
+      - ".github/workflows/infra-*.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "infra/terraform/**"
+      - "infra/ansible/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      action:
+        description: "Action to perform"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_VERSION: "1.6.0"
+  TF_VAR_environment: ${{ github.event.inputs.environment || 'dev' }}
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan - Drift Detection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exit_code }}
+      has_drift: ${{ steps.check_drift.outputs.has_drift }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+
+      - name: Terraform Init
+        run: |
+          cd infra
+          terraform init \
+            -backend-config="key=terraform-${{ env.TF_VAR_environment }}.tfstate"
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+
+      - name: Terraform Format Check
+        run: |
+          cd infra
+          terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Validate
+        run: |
+          cd infra
+          terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd infra
+          terraform plan \
+            -var-file="terraform.tfvars" \
+            -out=tfplan
+
+          # Check if there are any changes
+          if terraform show tfplan | grep -q "No changes"; then
+            echo "exit_code=0" >> $GITHUB_OUTPUT
+          else
+            echo "exit_code=1" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: Check for Infrastructure Drift
+        id: check_drift
+        run: |
+          cd infra
+
+          # Compare current state with remote
+          CURRENT_STATE=$(terraform show -json)
+
+          if [ -z "$CURRENT_STATE" ]; then
+            echo "has_drift=false" >> $GITHUB_OUTPUT
+          else
+            # If plan shows changes, there is drift
+            if terraform show tfplan | grep -q "No changes"; then
+              echo "has_drift=false" >> $GITHUB_OUTPUT
+            else
+              echo "has_drift=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Save Plan Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan-${{ env.TF_VAR_environment }}
+          path: infra/tfplan
+          retention-days: 7
+
+      - name: Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = require('child_process').execSync('cd infra && terraform show -no-color tfplan', { encoding: 'utf-8' });
+
+            const comment = `## Terraform Plan (${{ env.TF_VAR_environment }})
+
+            \`\`\`
+            ${plan}
+            \`\`\`
+
+            - **Drift Detected**: ${{ steps.check_drift.outputs.has_drift }}
+            - **Plan Status**: ${{ steps.plan.outputs.exit_code }}`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  drift-detection:
+    name: Drift Detection & Notification
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    if: needs.terraform-plan.outputs.has_drift == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create drift detection issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔴 Infrastructure Drift Detected - ${new Date().toISOString().split('T')[0]}`,
+              body: `## Infrastructure Drift Alert
+              
+              **Environment**: ${{ env.TF_VAR_environment }}
+              **Timestamp**: ${new Date().toISOString()}
+              **Commit**: ${{ github.sha }}
+              
+              ### Details
+              Infrastructure drift has been detected. The current infrastructure state differs from the Terraform configuration.
+              
+              ### Required Actions
+              1. Review the drift using the infrastructure workflow
+              2. Approve the apply to sync infrastructure with configuration
+              3. Monitor the deployment
+              
+              [View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`,
+              labels: ['infrastructure', 'drift', 'alert']
+            });
+
+            console.log('Issue created:', issue.data.number);
+
+      - name: Send email notification
+        uses: ./.github/workflows/send-email
+        with:
+          recipient: ${{ secrets.ALERT_EMAIL }}
+          subject: "🔴 Infrastructure Drift Detected - ${{ env.TF_VAR_environment }}"
+          message: |
+            Infrastructure drift has been detected in your ${{ env.TF_VAR_environment }} environment.
+
+            Timestamp: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Please review and approve the apply to sync infrastructure.
+        continue-on-error: true
+
+  approval-required:
+    name: Approval Gate - Terraform Apply
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    if: needs.terraform-plan.outputs.has_drift == 'true' && github.event_name == 'push'
+    environment:
+      name: ${{ env.TF_VAR_environment }}-approval
+
+    steps:
+      - name: Wait for approval
+        run: |
+          echo "⏸️ Waiting for approval to apply terraform changes..."
+          echo "Environment: ${{ env.TF_VAR_environment }}"
+          echo "Approval required from code owners"
+
+  terraform-apply:
+    name: Terraform Apply
+    needs: [terraform-plan, approval-required]
+    runs-on: ubuntu-latest
+    if: |
+      (needs.terraform-plan.outputs.has_drift == 'false' || success()) && 
+      github.ref == 'refs/heads/main' && 
+      github.event_name == 'push'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+
+      - name: Terraform Init
+        run: |
+          cd infra
+          terraform init \
+            -backend-config="key=terraform-${{ env.TF_VAR_environment }}.tfstate"
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan-${{ env.TF_VAR_environment }}
+          path: infra/
+
+      - name: Terraform Apply
+        run: |
+          cd infra
+          terraform apply -no-color -auto-approve tfplan
+
+      - name: Terraform Output
+        id: output
+        run: |
+          cd infra
+          terraform output -json > outputs.json
+          echo "outputs=$(cat outputs.json)" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with Apply Result
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '✅ Terraform Apply completed successfully'
+            });
+
+  ansible-check:
+    name: Ansible Playbook Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Ansible and dependencies
+        run: |
+          pip install ansible ansible-lint
+
+      - name: Validate Ansible Syntax
+        run: |
+          cd infra/playbooks
+          ansible-playbook site.yml --syntax-check
+
+      - name: Lint Ansible Playbooks
+        run: |
+          cd infra/playbooks
+          ansible-lint site.yml
+        continue-on-error: true
+
+  ansible-deploy:
+    name: Ansible Deployment
+    needs: [terraform-apply, ansible-check]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: ${{ env.TF_VAR_environment }}-deploy
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Ansible
+        run: |
+          pip install ansible boto3 botocore
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Generate Ansible Inventory
+        run: |
+          cd infra/scripts
+          bash generate_inventory.sh ${{ env.TF_VAR_environment }}
+
+      - name: Verify servers are running
+        run: |
+          cd infra
+          # Wait for instances to be in running state
+          aws ec2 wait instance-running --filters "Name=tag:Environment,Values=${{ env.TF_VAR_environment }}"
+
+      - name: Run Ansible Playbook - Setup Dependencies
+        run: |
+          cd infra/playbooks
+          ansible-playbook site.yml \
+            -i ../scripts/inventory \
+            --tags dependencies \
+            -e environment=${{ env.TF_VAR_environment }}
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+
+      - name: Run Ansible Playbook - Deploy Application
+        run: |
+          cd infra/playbooks
+          ansible-playbook site.yml \
+            -i ../scripts/inventory \
+            --tags deploy \
+            -e environment=${{ env.TF_VAR_environment }} \
+            -e app_repo_url=${{ github.repository }} \
+            -e app_branch=${{ github.ref_name }}
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+
+      - name: Post Deployment Health Check
+        run: |
+          echo "Running post-deployment health checks..."
+          # Add health check logic here
+
+      - name: Notify deployment completion
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const status = context.job.status === 'success' ? '✅' : '❌';
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `${status} Infrastructure and application deployment completed`
+            });

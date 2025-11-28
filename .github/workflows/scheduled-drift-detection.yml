@@ -1,0 +1,240 @@
+name: Scheduled Drift Detection
+
+on:
+  schedule:
+    # Run drift detection every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to check"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  detect-drift:
+    name: Drift Detection - ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, prod]
+      max-parallel: 1
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+
+      - name: Terraform Init
+        run: |
+          cd infra
+          terraform init \
+            -backend-config="key=terraform-${{ matrix.environment }}.tfstate"
+
+      - name: Check for Drift
+        id: drift
+        run: |
+          cd infra
+
+          # Run plan and capture output
+          terraform plan -var-file="terraform.tfvars" -no-color > plan.txt 2>&1 || true
+
+          # Check if there are changes
+          if grep -q "No changes" plan.txt; then
+            echo "has_drift=false" >> $GITHUB_OUTPUT
+            echo "drift_count=0" >> $GITHUB_OUTPUT
+          else
+            # Count resource changes
+            CHANGES=$(grep -c "to be created\|to be updated\|must be replaced\|will be destroyed" plan.txt || echo "0")
+            echo "has_drift=true" >> $GITHUB_OUTPUT
+            echo "drift_count=$CHANGES" >> $GITHUB_OUTPUT
+          fi
+
+          # Save plan for reference
+          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+          cat plan.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create drift alert issue
+        if: steps.drift.outputs.has_drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const driftCount = '${{ steps.drift.outputs.drift_count }}';
+            const environment = '${{ matrix.environment }}';
+            const timestamp = new Date().toISOString();
+
+            // Check for existing drift issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['drift-detection', environment]
+            });
+
+            let issueNumber = null;
+            if (issues.data.length > 0) {
+              issueNumber = issues.data[0].number;
+            }
+
+            const issueBody = `## 🔴 Infrastructure Drift Detected
+
+            **Environment**: ${environment}
+            **Timestamp**: ${timestamp}
+            **Resource Changes**: ${driftCount}
+            **Scheduled Check**: ⏰ Runs every 6 hours
+
+            ### Action Required
+            Review the infrastructure drift and apply changes to sync with configuration.
+
+            [View Latest Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ### Next Steps
+            1. Review the Terraform plan in the workflow logs
+            2. Navigate to the Infrastructure Workflow
+            3. Approve and apply the changes
+
+            ---
+            _Last checked: ${timestamp}_`;
+
+            if (issueNumber) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: issueBody
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔴 Drift Detected in ${environment} - ${timestamp.split('T')[0]}`,
+                body: issueBody,
+                labels: ['drift-detection', environment, 'infrastructure']
+              });
+            }
+
+      - name: Send drift notification email
+        if: steps.drift.outputs.has_drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const AWS = require('aws-sdk');
+
+            const ses = new AWS.SES({ region: '${{ env.AWS_REGION }}' });
+
+            const params = {
+              Source: '${{ secrets.SES_EMAIL_FROM }}',
+              Destination: {
+                ToAddresses: ['${{ secrets.ALERT_EMAIL }}']
+              },
+              Message: {
+                Subject: {
+                  Data: '🔴 Infrastructure Drift Alert - ${{ matrix.environment }}',
+                  Charset: 'UTF-8'
+                },
+                Body: {
+                  Text: {
+                    Data: `Infrastructure drift detected in ${{ matrix.environment }} environment.
+
+            Resource Changes: ${{ steps.drift.outputs.drift_count }}
+
+            Please review and apply the changes to sync infrastructure with configuration.
+
+            View workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+                    Charset: 'UTF-8'
+                  }
+                }
+              }
+            };
+
+            try {
+              const result = await ses.sendEmail(params).promise();
+              console.log('Drift alert email sent:', result.MessageId);
+            } catch (error) {
+              console.error('Failed to send email:', error);
+            }
+
+      - name: Slack notification (optional)
+        if: steps.drift.outputs.has_drift == 'true' && secrets.SLACK_WEBHOOK
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "🔴 Infrastructure Drift Detected",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Infrastructure Drift Alert"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\n${{ matrix.environment }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Changes:*\n${{ steps.drift.outputs.drift_count }} resources"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+
+  summary:
+    name: Drift Detection Summary
+    runs-on: ubuntu-latest
+    needs: detect-drift
+    if: always()
+
+    steps:
+      - name: Generate summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('Drift detection completed for all environments');

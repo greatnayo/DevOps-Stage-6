@@ -1,0 +1,508 @@
+name: App Deployment - Services & Docker
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "auth-api/**"
+      - "todos-api/**"
+      - "users-api/**"
+      - "frontend/**"
+      - "log-message-processor/**"
+      - "docker-compose.yml"
+      - ".github/workflows/app-deploy-*.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "auth-api/**"
+      - "todos-api/**"
+      - "users-api/**"
+      - "frontend/**"
+      - "log-message-processor/**"
+      - "docker-compose.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      services:
+        description: "Services to deploy (comma-separated or all)"
+        required: false
+        default: "all"
+
+env:
+  AWS_REGION: us-east-1
+  REGISTRY: ghcr.io
+  REGISTRY_USERNAME: ${{ github.actor }}
+
+jobs:
+  detect-changes:
+    name: Detect Service Changes
+    runs-on: ubuntu-latest
+    outputs:
+      auth-api: ${{ steps.changes.outputs.auth-api }}
+      todos-api: ${{ steps.changes.outputs.todos-api }}
+      users-api: ${{ steps.changes.outputs.users-api }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      log-message-processor: ${{ steps.changes.outputs.log-message-processor }}
+      docker-compose: ${{ steps.changes.outputs.docker-compose }}
+      any-change: ${{ steps.changes.outputs.any-change }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        id: changes
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          # Check each service
+          echo "auth-api=$(echo "$CHANGED_FILES" | grep -q 'auth-api' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "todos-api=$(echo "$CHANGED_FILES" | grep -q 'todos-api' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "users-api=$(echo "$CHANGED_FILES" | grep -q 'users-api' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "frontend=$(echo "$CHANGED_FILES" | grep -q 'frontend' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "log-message-processor=$(echo "$CHANGED_FILES" | grep -q 'log-message-processor' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "docker-compose=$(echo "$CHANGED_FILES" | grep -q 'docker-compose' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+          # Check if any service changed
+          if echo "$CHANGED_FILES" | grep -qE '(auth-api|todos-api|users-api|frontend|log-message-processor|docker-compose)'; then
+            echo "any-change=true" >> $GITHUB_OUTPUT
+          else
+            echo "any-change=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Changed files: $CHANGED_FILES"
+
+  build-auth-api:
+    name: Build & Test Auth API
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.auth-api == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Build Auth API
+        run: |
+          cd auth-api
+          go build -v -o auth-api main.go
+
+      - name: Run tests
+        run: |
+          cd auth-api
+          go test -v ./...
+        continue-on-error: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Auth API image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./auth-api
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/auth-api:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/auth-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-todos-api:
+    name: Build & Test Todos API
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.todos-api == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: |
+          cd todos-api
+          npm ci
+
+      - name: Build Todos API
+        run: |
+          cd todos-api
+          npm run build
+        continue-on-error: true
+
+      - name: Run tests
+        run: |
+          cd todos-api
+          npm test
+        continue-on-error: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Todos API image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./todos-api
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/todos-api:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/todos-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-users-api:
+    name: Build & Test Users API
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.users-api == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build Users API
+        run: |
+          cd users-api
+          ./mvnw clean package -DskipTests
+
+      - name: Run tests
+        run: |
+          cd users-api
+          ./mvnw test
+        continue-on-error: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Users API image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./users-api
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/users-api:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/users-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-frontend:
+    name: Build & Test Frontend
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test
+        continue-on-error: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-log-processor:
+    name: Build & Test Log Message Processor
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.log-message-processor == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          cd log-message-processor
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          cd log-message-processor
+          python -m pytest || true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Log Processor image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./log-message-processor
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/log-message-processor:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/log-message-processor:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  app-deploy:
+    name: Deploy Application Services
+    needs:
+      [
+        detect-changes,
+        build-auth-api,
+        build-todos-api,
+        build-users-api,
+        build-frontend,
+        build-log-processor,
+      ]
+    runs-on: ubuntu-latest
+    if: |
+      needs.detect-changes.outputs.any-change == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    environment:
+      name: ${{ github.event.inputs.environment || 'dev' }}-deploy
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Ansible
+        run: |
+          pip install ansible boto3 botocore
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Generate Ansible Inventory
+        run: |
+          cd infra/scripts
+          bash generate_inventory.sh ${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Verify servers are running
+        run: |
+          cd infra
+          aws ec2 wait instance-running \
+            --filters "Name=tag:Environment,Values=${{ github.event.inputs.environment || 'dev' }}" \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Update docker-compose configuration
+        run: |
+          # Update image tags in docker-compose.yml
+          sed -i 's|auth-api:latest|auth-api:${{ github.sha }}|g' docker-compose.yml
+          sed -i 's|todos-api:latest|todos-api:${{ github.sha }}|g' docker-compose.yml
+          sed -i 's|users-api:latest|users-api:${{ github.sha }}|g' docker-compose.yml
+          sed -i 's|frontend:latest|frontend:${{ github.sha }}|g' docker-compose.yml
+          sed -i 's|log-message-processor:latest|log-message-processor:${{ github.sha }}|g' docker-compose.yml
+
+      - name: Run Ansible Playbook - Deploy Services
+        run: |
+          cd infra/playbooks
+          ansible-playbook site.yml \
+            -i ../scripts/inventory \
+            --tags deploy \
+            -e environment=${{ github.event.inputs.environment || 'dev' }} \
+            -e app_repo_url=${{ github.repository }} \
+            -e app_branch=${{ github.ref_name }} \
+            -e force_deploy=true
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+
+      - name: Health Check - Wait for Services
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 30
+
+      - name: Health Check - Frontend
+        run: |
+          curl -f http://localhost || true
+        continue-on-error: true
+
+      - name: Health Check - Auth API
+        run: |
+          curl -f http://localhost:3001/health || true
+        continue-on-error: true
+
+      - name: Health Check - Todos API
+        run: |
+          curl -f http://localhost:3002/health || true
+        continue-on-error: true
+
+      - name: Health Check - Users API
+        run: |
+          curl -f http://localhost:8080/health || true
+        continue-on-error: true
+
+      - name: Create deployment summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const services = {
+              'auth-api': ${{ needs.detect-changes.outputs.auth-api }},
+              'todos-api': ${{ needs.detect-changes.outputs.todos-api }},
+              'users-api': ${{ needs.detect-changes.outputs.users-api }},
+              'frontend': ${{ needs.detect-changes.outputs.frontend }},
+              'log-message-processor': ${{ needs.detect-changes.outputs.log-message-processor }}
+            };
+
+            let deployedServices = [];
+            for (const [service, deployed] of Object.entries(services)) {
+              if (deployed === true) {
+                deployedServices.push(service);
+              }
+            }
+
+            const comment = `## 🚀 Application Deployment Complete
+
+            **Environment**: ${{ github.event.inputs.environment || 'dev' }}
+            **Commit**: ${{ github.sha }}
+
+            ### Deployed Services
+            ${deployedServices.map(s => `- ✅ ${s}`).join('\n')}
+
+            ### Image Tags
+            ${{ github.sha }}
+
+            [View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: comment
+            });
+
+  rollback:
+    name: Rollback on Failure
+    needs: app-deploy
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Notify deployment failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '❌ Application deployment failed. Review logs and rollback if needed.'
+            });
+
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `❌ Deployment Failed - ${{ github.ref_name }}`,
+              body: `Deployment failed for commit ${{ github.sha }}\n\n[View Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`,
+              labels: ['deployment', 'failure']
+            });
