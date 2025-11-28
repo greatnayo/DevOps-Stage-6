@@ -35,8 +35,8 @@ http {
 
         # Proxy authentication requests to auth-api
         location /login {
-            set $auth_api_upstream ${AUTH_API_ADDRESS};
-            proxy_pass $auth_api_upstream;
+            set $auth_api_upstream http://auth-api:8081;
+            proxy_pass $auth_api_upstream/login;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -48,8 +48,8 @@ http {
 
         # Proxy todo requests to todos-api
         location /todos {
-            set $todos_api_upstream ${TODOS_API_ADDRESS};
-            proxy_pass $todos_api_upstream;
+            set $todos_api_upstream http://todos-api:8082;
+            proxy_pass $todos_api_upstream/todos;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
