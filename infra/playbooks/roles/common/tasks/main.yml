@@ -1,0 +1,37 @@
+---
+# roles/common/tasks/main.yml
+
+- name: Update system packages
+  package:
+    name: "*"
+    state: latest
+
+- name: Install common packages
+  package:
+    name:
+      - git
+      - curl
+      - wget
+      - jq
+      - python3
+      - python3-pip
+    state: present
+
+- name: Install Docker
+  package:
+    name: docker
+    state: present
+
+- name: Enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Install Docker Compose
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: "0755"
+    force: yes

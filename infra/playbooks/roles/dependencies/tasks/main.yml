@@ -1,0 +1,139 @@
+---
+# roles/dependencies/tasks/main.yml
+# Installs all dependencies required for the application
+
+- name: Update system packages
+  package:
+    name: "*"
+    state: latest
+  notify: reboot_if_required
+
+- name: Install common packages
+  package:
+    name:
+      - git
+      - curl
+      - wget
+      - jq
+      - python3
+      - python3-pip
+      - openssl
+      - ca-certificates
+    state: present
+
+- name: Install Docker
+  package:
+    name: docker
+    state: present
+
+- name: Create docker group if it doesn't exist
+  group:
+    name: docker
+    state: present
+
+- name: Enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Add user to docker group
+  user:
+    name: ec2-user
+    groups: docker
+    append: yes
+
+- name: Install Docker Compose
+  block:
+    - name: Check if Docker Compose exists
+      stat:
+        path: /usr/local/bin/docker-compose
+      register: docker_compose_stat
+
+    - name: Get latest Docker Compose version
+      uri:
+        url: https://api.github.com/repos/docker/compose/releases/latest
+        return_content: yes
+      register: compose_latest
+      when: not docker_compose_stat.stat.exists or force_docker_compose_update | default(false)
+
+    - name: Extract Docker Compose version
+      set_fact:
+        compose_version: "{{ compose_latest.json.tag_name | regex_replace('v', '') }}"
+      when: compose_latest is not skipped
+
+    - name: Download and install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: "0755"
+        force: yes
+      when: compose_latest is not skipped
+      register: compose_download
+
+    - name: Install Docker Compose (if version doesn't exist)
+      get_url:
+        url: https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: "0755"
+        force: yes
+      when: not docker_compose_stat.stat.exists and compose_latest is skipped
+
+- name: Verify Docker Compose installation
+  command: docker-compose --version
+  changed_when: false
+  register: compose_version_output
+
+- name: Install Traefik prerequisites
+  block:
+    - name: Install acme.sh for SSL certificate management (optional)
+      shell: |
+        curl https://get.acme.sh | sh -s email=admin@example.com
+        source ~/.bashrc
+      args:
+        executable: /bin/bash
+      become_user: ec2-user
+      ignore_errors: yes
+
+    - name: Create Traefik directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - /etc/traefik
+        - /opt/traefik
+        - /opt/traefik/certs
+
+    - name: Create letsencrypt directory for Traefik
+      file:
+        path: /opt/traefik/letsencrypt
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+- name: Create Docker network for application
+  docker_network:
+    name: app-network
+    state: present
+    driver: bridge
+  register: app_network_created
+  ignore_errors: yes
+
+- name: Install pip packages for Docker management
+  pip:
+    name:
+      - docker
+      - docker-compose
+    executable: pip3
+
+- name: Display installation summary
+  debug:
+    msg: |
+      ✓ Docker Compose installed: {{ compose_version_output.stdout }}
+      ✓ Dependencies installation completed
+      ✓ Docker network 'app-network' created

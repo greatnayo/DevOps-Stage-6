@@ -1,0 +1,53 @@
+---
+# roles/deploy/defaults/main.yml
+# Default variables for deploy role
+
+# Application Configuration
+app_directory: /opt/app
+app_user: ec2-user
+app_group: ec2-user
+app_repo_url: https://github.com/greatnayo/DevOps-Stage-6.git
+app_branch: main
+environment: dev
+app_debug: false
+force_deploy: false
+
+# Traefik Configuration
+setup_traefik: true
+setup_ssl: true
+traefik_dashboard_enabled: true
+traefik_api_insecure: false
+traefik_debug: false
+traefik_log_level: INFO
+traefik_network: app-network
+domain: localhost
+
+# Certificates and SSL
+acme_email: admin@example.com
+production_acme_server: false
+
+# Service Ports
+auth_api_port: 3001
+todos_api_port: 3002
+users_api_port: 8080
+frontend_port: 80
+
+# Database Configuration
+db_host: db
+db_port: 5432
+db_name: app
+
+# JWT Configuration
+jwt_secret: your-secret-key-change-in-production
+jwt_expiry: 3600
+
+# Monitoring and Logging
+log_level: info
+enable_metrics: true
+
+# Health Check Configuration
+health_check_delay: 15
+health_check_endpoints: []
+
+# Cleanup Configuration
+cleanup_docker_resources: false

@@ -1,0 +1,301 @@
+name: Terraform Drift Detection & Deployment
+
+on:
+  schedule:
+    # Run drift detection every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      approve:
+        description: 'Approve changes (yes/no)'
+        required: false
+        default: 'no'
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - '.github/workflows/terraform-drift-detection.yml'
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_VERSION: 1.5.0
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan & Drift Detection
+    runs-on: ubuntu-latest
+    outputs:
+      drift_detected: ${{ steps.plan.outputs.drift_detected }}
+      plan_output: ${{ steps.plan.outputs.plan_output }}
+      tfplan_artifact: ${{ steps.plan.outputs.tfplan_artifact }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        id: init
+        working-directory: ./infra
+        run: |
+          terraform init \
+            -backend-config=backend-config.hcl \
+            -upgrade \
+            -no-color
+          echo "init_status=success" >> $GITHUB_OUTPUT
+
+      - name: Terraform Format Check
+        id: fmt
+        working-directory: ./infra
+        run: |
+          terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: ./infra
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ./infra
+        run: |
+          terraform plan \
+            -out=tfplan \
+            -input=false \
+            -no-color \
+            -detailed-exitcode || echo "exit_code=$?" >> $GITHUB_OUTPUT
+          
+          # Convert plan to JSON for analysis
+          terraform show -json tfplan > tfplan.json
+          
+          # Check for changes
+          PLAN_OUTPUT=$(terraform show -no-color tfplan)
+          
+          # Detect drift
+          if echo "$PLAN_OUTPUT" | grep -q "No changes"; then
+            echo "drift_detected=false" >> $GITHUB_OUTPUT
+            echo "**✅ No drift detected** - Infrastructure matches configuration" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "drift_detected=true" >> $GITHUB_OUTPUT
+            echo "**⚠️  Drift detected** - Infrastructure differs from configuration" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Planned Changes:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$PLAN_OUTPUT" | head -50 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+          echo "$PLAN_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "tfplan_artifact=tfplan" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Save Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: ./infra/tfplan
+          retention-days: 1
+
+      - name: Save Plan JSON
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan-json
+          path: ./infra/tfplan.json
+          retention-days: 1
+
+  send-drift-notification:
+    name: Send Drift Alert Email
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: needs.terraform-plan.outputs.drift_detected == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download plan artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan-json
+
+      - name: Send Email Notification
+        uses: ./infra/scripts/send-email
+        with:
+          email_to: ${{ secrets.ALERT_EMAIL }}
+          email_subject: '🚨 Infrastructure Drift Detected - Manual Approval Required'
+          drift_detected: 'true'
+          plan_output: ${{ needs.terraform-plan.outputs.plan_output }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Issue for approval
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Infrastructure Drift Detected - Approval Required',
+              body: `
+## Drift Detection Report
+**Status**: ⚠️ Infrastructure drift detected
+
+### Plan Output
+\`\`\`
+${{ needs.terraform-plan.outputs.plan_output }}
+\`\`\`
+
+### Next Steps
+1. Review the planned changes above
+2. Run the Terraform Apply job below if changes are approved
+3. React with ✅ to approve or ❌ to reject
+
+### Apply Changes
+[@actions apply-terraform]({{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              `,
+              labels: ['terraform', 'drift-detected', 'needs-approval']
+            });
+            console.log(`Created issue #${issue.data.number}`);
+
+  request-approval:
+    name: Request Manual Approval
+    runs-on: ubuntu-latest
+    needs: [terraform-plan, send-drift-notification]
+    if: needs.terraform-plan.outputs.drift_detected == 'true'
+    environment:
+      name: terraform-apply-approval
+      reviewers:
+        - devops-team
+
+    steps:
+      - name: Wait for approval
+        run: |
+          echo "⏸️  Waiting for manual approval before applying changes..."
+          echo "Drift detected in infrastructure. Please review the changes and approve to continue."
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [terraform-plan, request-approval]
+    if: |
+      needs.terraform-plan.outputs.drift_detected == 'true' && 
+      (github.event.inputs.approve == 'yes' || needs.request-approval.result == 'success')
+    environment:
+      name: terraform-apply
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ./infra
+        run: |
+          terraform init \
+            -backend-config=backend-config.hcl \
+            -no-color
+
+      - name: Download saved plan
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan
+          path: ./infra
+
+      - name: Terraform Apply
+        id: apply
+        working-directory: ./infra
+        run: |
+          echo "Starting Terraform Apply..."
+          terraform apply -no-color -input=false tfplan
+          echo "apply_status=success" >> $GITHUB_OUTPUT
+
+      - name: Get Terraform Outputs
+        id: outputs
+        working-directory: ./infra
+        run: |
+          terraform output -json > outputs.json
+          cat outputs.json
+
+      - name: Send Success Notification
+        uses: ./infra/scripts/send-email
+        with:
+          email_to: ${{ secrets.ALERT_EMAIL }}
+          email_subject: '✅ Infrastructure Updated Successfully'
+          status: 'success'
+          apply_output: ${{ steps.apply.outputs.apply_status }}
+
+      - name: Save Outputs
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs
+          path: ./infra/outputs.json
+
+  auto-apply-no-drift:
+    name: Auto Apply (No Drift)
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: |
+      needs.terraform-plan.outputs.drift_detected == 'false' &&
+      github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Send No Drift Notification
+        uses: ./infra/scripts/send-email
+        with:
+          email_to: ${{ secrets.ALERT_EMAIL }}
+          email_subject: '✅ Infrastructure Verified - No Drift'
+          status: 'no-drift'
+
+      - name: Log
+        run: |
+          echo "✅ No infrastructure drift detected"
+          echo "Current infrastructure matches the desired state"
+
+  workflow-summary:
+    name: Workflow Summary
+    runs-on: ubuntu-latest
+    needs: [terraform-plan]
+    if: always()
+
+    steps:
+      - name: Create Summary
+        run: |
+          echo "## 📊 Terraform Drift Detection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Drift Detected | ${{ needs.terraform-plan.outputs.drift_detected }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u +'%Y-%m-%dT%H:%M:%SZ') |" >> $GITHUB_STEP_SUMMARY

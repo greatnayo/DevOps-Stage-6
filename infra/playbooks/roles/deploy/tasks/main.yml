@@ -1,0 +1,202 @@
+---
+# roles/deploy/tasks/main.yml
+# Handles application deployment with idempotent checks
+
+- name: Check if application directory exists
+  stat:
+    path: "{{ app_directory }}"
+  register: app_dir_stat
+
+- name: Create application directory if needed
+  file:
+    path: "{{ app_directory }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  when: not app_dir_stat.stat.exists
+
+- name: Clone application repository
+  block:
+    - name: Clone repo if directory is empty
+      git:
+        repo: "{{ app_repo_url }}"
+        dest: "{{ app_directory }}"
+        version: "{{ app_branch | default('main') }}"
+        update: yes
+        force: yes
+      become_user: "{{ app_user }}"
+      register: git_clone_result
+      when: not app_dir_stat.stat.exists or app_directory_empty.stat.exists | default(false)
+
+    - name: Update existing repository
+      git:
+        repo: "{{ app_repo_url }}"
+        dest: "{{ app_directory }}"
+        version: "{{ app_branch | default('main') }}"
+        update: yes
+        force: no
+      become_user: "{{ app_user }}"
+      register: git_update_result
+      when: app_dir_stat.stat.exists and not app_directory_empty.stat.exists | default(false)
+
+    - name: Set git_changed flag
+      set_fact:
+        git_changed: "{{ git_clone_result.changed or git_update_result.changed | default(false) }}"
+
+- name: Check for docker-compose.yml
+  stat:
+    path: "{{ app_directory }}/docker-compose.yml"
+  register: compose_file_stat
+
+- name: Check if .env file has changed
+  stat:
+    path: "{{ app_directory }}/.env"
+  register: env_file_stat
+
+- name: Create docker-compose environment file
+  template:
+    src: docker-compose.env.j2
+    dest: "{{ app_directory }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  vars:
+    environment: "{{ environment | default('dev') }}"
+    traefik_network: "{{ traefik_network | default('app-network') }}"
+  register: env_file_created
+  when: compose_file_stat.stat.exists
+
+- name: Pull latest Docker images
+  block:
+    - name: Pull images from docker-compose
+      shell: |
+        cd {{ app_directory }}
+        docker-compose pull
+      become_user: "{{ app_user }}"
+      register: docker_pull_result
+      changed_when: "'Downloaded' in docker_pull_result.stdout or 'Pulling' in docker_pull_result.stdout"
+      when: compose_file_stat.stat.exists and git_changed | default(false)
+
+- name: Deploy application services
+  block:
+    - name: Start services only if files changed (idempotent)
+      shell: |
+        cd {{ app_directory }}
+        docker-compose up -d
+      become_user: "{{ app_user }}"
+      register: compose_up_result
+      changed_when: "'created' in compose_up_result.stdout or 'started' in compose_up_result.stdout"
+      when: git_changed or env_file_created.changed or force_deploy | default(false)
+
+    - name: Services already running (no changes)
+      debug:
+        msg: "Services already running with current configuration"
+      when: not (git_changed or env_file_created.changed or force_deploy | default(false))
+
+- name: Setup Traefik configuration
+  block:
+    - name: Create Traefik configuration directory
+      file:
+        path: /opt/traefik/config
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Generate Traefik static configuration
+      template:
+        src: traefik-config.yml.j2
+        dest: /opt/traefik/config/traefik.yml
+        owner: root
+        group: root
+        mode: "0644"
+      register: traefik_config_updated
+      notify: restart_traefik
+
+    - name: Create dynamic routing configuration
+      template:
+        src: traefik-routing.yml.j2
+        dest: /opt/traefik/config/routing.yml
+        owner: root
+        group: root
+        mode: "0644"
+      register: traefik_routing_updated
+      notify: restart_traefik
+
+  when: setup_traefik | default(false)
+
+- name: Setup SSL/TLS certificates
+  block:
+    - name: Create letsencrypt directory structure
+      file:
+        path: /opt/traefik/letsencrypt
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Generate acme.json for Let's Encrypt
+      copy:
+        content: |
+          {}
+        dest: /opt/traefik/letsencrypt/acme.json
+        force: no
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Configure Traefik for SSL/TLS
+      lineinfile:
+        path: /opt/traefik/config/traefik.yml
+        line: "certificatesResolvers:"
+        insertafter: "^providers:"
+        state: present
+      when: traefik_config_updated.changed
+
+  when: setup_ssl | default(false)
+
+- name: Health check and validation
+  block:
+    - name: Wait for services to stabilize
+      pause:
+        seconds: "{{ health_check_delay | default(15) }}"
+      when: git_changed or env_file_created.changed
+
+    - name: Check application health endpoints
+      uri:
+        url: "http://localhost:{{ item.port }}/{{ item.health_path | default('health') }}"
+        method: GET
+        status_code: 200
+        timeout: 10
+      retries: 5
+      delay: 3
+      ignore_errors: yes
+      register: health_check_result
+      loop: "{{ health_check_endpoints | default([]) }}"
+      when: health_check_endpoints | default([]) | length > 0
+
+    - name: Display health check results
+      debug:
+        msg: "Health check for {{ item.item.name | default('service') }}: {{ item.status | default('skipped') }}"
+      loop: "{{ health_check_result.results | default([]) }}"
+      when: health_check_result.results is defined
+
+- name: Cleanup old containers and images
+  block:
+    - name: Prune unused Docker resources
+      shell: |
+        docker container prune -f
+        docker image prune -f
+      when: cleanup_docker_resources | default(false)
+      ignore_errors: yes
+
+- name: Deployment summary
+  debug:
+    msg: |
+      ✓ Repository: {{ app_repo_url }}
+      ✓ Branch: {{ app_branch | default('main') }}
+      ✓ Directory: {{ app_directory }}
+      ✓ Repository changed: {{ git_changed | default(false) }}
+      ✓ Environment file updated: {{ env_file_created.changed | default(false) }}
+      ✓ Services deployed: {{ git_changed or env_file_created.changed | default(false) }}

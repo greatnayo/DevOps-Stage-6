@@ -1,0 +1,119 @@
+# Traefik Dynamic Configuration Template
+# Generated during deployment
+
+---
+# Global settings
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Entrypoints
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+
+  traefik:
+    address: ":8080"
+
+# API and Dashboard
+api:
+  dashboard: true
+  debug: false
+
+# Providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: true
+    defaultRule: "Host(`{{ index .Labels \"com.docker.compose.service\" }}.${alb_dns_name}`)"
+  
+  file:
+    filename: /etc/traefik/traefik-dynamic.yml
+    watch: true
+
+# Certificate Resolvers
+certificatesResolvers:
+%{ if enable_ssl ~}
+%{ if ssl_provider == "letsencrypt" ~}
+  letsencrypt:
+    acme:
+      email: ${acme_email}
+      storage: /acme.json
+      httpChallenge:
+        entryPoint: web
+%{ endif ~}
+%{ endif ~}
+
+# Log Level
+log:
+  level: INFO
+  filePath: /var/log/traefik/traefik.log
+
+accessLog:
+  filePath: /var/log/traefik/access.log
+
+# Metrics (optional)
+metrics:
+  prometheus: {}
+
+# Middleware
+http:
+  middlewares:
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    
+    rate-limit:
+      rateLimit:
+        average: 100
+        period: 1m
+        burst: 50
+    
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+          - PUT
+          - DELETE
+        accessControlAllowOriginList:
+          - "*"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+# Default HTTP configuration
+http:
+  routers:
+    catchall-http:
+      rule: "HostRegexp(`.*`)"
+      entryPoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop
+  
+  services:
+    noop:
+      loadBalancer:
+        servers:
+          - url: http://localhost
+
+# TCP Configuration (for additional services)
+tcp:
+  routers: {}
+  services: {}
+
+# UDP Configuration
+udp:
+  routers: {}
+  services: {}

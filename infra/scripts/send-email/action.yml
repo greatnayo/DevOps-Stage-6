@@ -1,0 +1,35 @@
+name: "Send Email Notification"
+description: "Send email notification for Terraform drift detection"
+inputs:
+  email_to:
+    description: "Email address to send notification to"
+    required: true
+  email_subject:
+    description: "Email subject"
+    required: true
+  drift_detected:
+    description: "Whether drift was detected"
+    required: false
+    default: "false"
+  plan_output:
+    description: "Terraform plan output"
+    required: false
+  status:
+    description: "Status (success, failed, no-drift)"
+    required: false
+    default: "unknown"
+  apply_output:
+    description: "Terraform apply output"
+    required: false
+runs:
+  using: "docker"
+  image: "docker://amazon/aws-cli:latest"
+  entrypoint: "/entrypoint.sh"
+  post-entrypoint: "/post-entrypoint.sh"
+  env:
+    INPUT_EMAIL_TO: ${{ inputs.email_to }}
+    INPUT_EMAIL_SUBJECT: ${{ inputs.email_subject }}
+    INPUT_DRIFT_DETECTED: ${{ inputs.drift_detected }}
+    INPUT_PLAN_OUTPUT: ${{ inputs.plan_output }}
+    INPUT_STATUS: ${{ inputs.status }}
+    INPUT_APPLY_OUTPUT: ${{ inputs.apply_output }}
