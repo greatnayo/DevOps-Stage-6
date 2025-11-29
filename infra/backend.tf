@@ -11,7 +11,7 @@ terraform {
     key            = "infra/terraform.tfstate"
     
     # AWS region
-    region         = "us-east-1"
+    region         = "eu-west-2"
     
     # Enable server-side encryption
     encrypt        = true
@@ -29,7 +29,7 @@ terraform {
 
 # SETUP INSTRUCTIONS:
 # 1. Create S3 bucket:
-#    aws s3 mb s3://devops-stage-6-terraform-state --region us-east-1
+#    aws s3 mb s3://devops-stage-6-terraform-state --region eu-west-2
 #
 # 2. Enable versioning:
 #    aws s3api put-bucket-versioning \
@@ -59,4 +59,4 @@ terraform {
 #      --attribute-definitions AttributeName=LockID,AttributeType=S \
 #      --key-schema AttributeName=LockID,KeyType=HASH \
 #      --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
-#      --region us-east-1
+#      --region eu-west-2
