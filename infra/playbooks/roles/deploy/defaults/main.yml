@@ -23,7 +23,7 @@ traefik_network: app-network
 domain: localhost
 
 # Certificates and SSL
-acme_email: admin@example.com
+acme_email: greatnayo@gmail.com
 production_acme_server: false
 
 # Service Ports

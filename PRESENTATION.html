@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps-Stage-6: Complete Setup Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+        
+        .presentation {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+        }
+        
+        .slide {
+            display: none;
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 60px;
+            overflow-y: auto;
+            animation: fadeIn 0.5s;
+        }
+        
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .slide h1 {
+            color: #2c3e50;
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+        
+        .slide h2 {
+            color: #34495e;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        
+        .slide h3 {
+            color: #2c3e50;
+            font-size: 1.8em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .slide p, .slide li {
+            color: #555;
+            font-size: 1.1em;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        
+        .slide ul {
+            margin-left: 40px;
+        }
+        
+        .slide li {
+            margin-bottom: 10px;
+        }
+        
+        .title-slide {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .title-slide h1 {
+            color: white;
+            font-size: 3.5em;
+            margin-bottom: 20px;
+        }
+        
+        .title-slide p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.3em;
+            margin-bottom: 10px;
+        }
+        
+        .code-block {
+            background: #f4f4f4;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            overflow-x: auto;
+            color: #333;
+        }
+        
+        .code-block code {
+            color: #d63384;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .card p {
+            color: #666;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+        
+        .stage-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stage-num {
+            font-size: 1.8em;
+            font-weight: bold;
+            min-width: 50px;
+        }
+        
+        .stage-content {
+            flex: 1;
+            margin-left: 20px;
+        }
+        
+        .stage-time {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .slide-number {
+            position: fixed;
+            top: 20px;
+            right: 30px;
+            color: #2c3e50;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .architecture-diagram {
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+            color: #333;
+            overflow-x: auto;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .feature-item {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0e7ff 100%);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .feature-item strong {
+            color: #2c3e50;
+        }
+        
+        .feature-item p {
+            color: #666;
+            font-size: 0.95em;
+            margin-top: 5px;
+        }
+        
+        .success-badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-number"><span id="current">1</span> / <span id="total">25</span></div>
+    
+    <div class="presentation">
+        <!-- Slide 1: Title -->
+        <div class="slide active title-slide">
+            <h1>🚀 DevOps-Stage-6</h1>
+            <p>Complete Cloud Infrastructure & Deployment Setup</p>
+            <p style="margin-top: 50px; font-size: 1.1em;">From Code to Production in Minutes</p>
+            <p style="margin-top: 100px; font-size: 1em; opacity: 0.8;">A Comprehensive Guide to Modern DevOps Practices</p>
+        </div>
+
+        <!-- Slide 2: What is DevOps-Stage-6? -->
+        <div class="slide">
+            <h2>What is DevOps-Stage-6?</h2>
+            <p style="margin-top: 30px;">DevOps-Stage-6 is a <span class="highlight">complete, production-ready infrastructure setup</span> that demonstrates modern DevOps practices.</p>
+            
+            <h3>Core Components</h3>
+            <ul style="margin-top: 20px;">
+                <li><strong>Infrastructure as Code (IaC):</strong> Terraform for AWS provisioning</li>
+                <li><strong>Configuration Management:</strong> Ansible for application deployment</li>
+                <li><strong>Containerization:</strong> Docker & Docker Compose</li>
+                <li><strong>Reverse Proxy:</strong> Traefik with SSL/TLS</li>
+                <li><strong>CI/CD:</strong> Automated deployment pipeline</li>
+                <li><strong>Monitoring:</strong> Distributed tracing & observability</li>
+            </ul>
+        </div>
+
+        <!-- Slide 3: The Big Picture -->
+        <div class="slide">
+            <h2>The Big Picture</h2>
+            <h3>What We're Building</h3>
+            <div class="architecture-diagram">
+Internet (Users)
+    ↓
+Application Load Balancer (ALB)
+    ├─ Port 80 (HTTP) → Auto-redirect to 443
+    └─ Port 443 (HTTPS) → Traefik reverse proxy
+         ↓
+    Traefik (Reverse Proxy + SSL)
+         ↓
+    EC2 Instances (Auto Scaling Group)
+         ├─ Instance 1
+         │  └─ Docker Containers
+         │     ├─ Frontend (Vue.js)
+         │     ├─ Auth API (Go)
+         │     ├─ Todo API (Node.js)
+         │     └─ Users API (Java)
+         └─ Instance 2 (same)
+            </div>
+            <p><strong>Result:</strong> Highly available, scalable, load-balanced infrastructure with SSL/TLS security.</p>
+        </div>
+
+        <!-- Slide 4: One Command to Deploy -->
+        <div class="slide">
+            <h2>The Magic: One Command to Deploy</h2>
+            <div class="code-block">
+cd infra
+terraform apply -auto-approve
+            </div>
+            <h3>This Single Command Does Everything:</h3>
+            <ul style="margin-top: 20px;">
+                <li>✅ Provisions entire AWS infrastructure</li>
+                <li>✅ Creates EC2 instances</li>
+                <li>✅ Generates deployment inventory</li>
+                <li>✅ Deploys applications</li>
+                <li>✅ Configures reverse proxy</li>
+                <li>✅ Sets up SSL certificates</li>
+                <li>✅ Validates everything works</li>
+            </ul>
+            <p style="margin-top: 30px;"><strong>Duration:</strong> 10-30 minutes for complete deployment</p>
+        </div>
+
+        <!-- Slide 5: 7-Stage Deployment Pipeline -->
+        <div class="slide">
+            <h2>7-Stage Deployment Pipeline</h2>
+            <div class="stage-box" style="margin-bottom: 15px;">
+                <div class="stage-num">1</div>
+                <div class="stage-content">Infrastructure Provisioning: VPC, Subnets, ALB, ASG, EC2</div>
+                <div class="stage-time">2-5 min</div>
+            </div>
+            <div class="stage-box" style="margin-bottom: 15px;">
+                <div class="stage-num">2</div>
+                <div class="stage-content">Inventory Generation: Dynamic from EC2 instances</div>
+                <div class="stage-time">1 min</div>
+            </div>
+            <div class="stage-box" style="margin-bottom: 15px;">
+                <div class="stage-num">3</div>
+                <div class="stage-content">Instance Readiness: Poll ALB until all healthy</div>
+                <div class="stage-time">2-5 min</div>
+            </div>
+            <div class="stage-box" style="margin-bottom: 15px;">
+                <div class="stage-num">4</div>
+                <div class="stage-content">Ansible Deployment: Install & deploy applications</div>
+                <div class="stage-time">3-10 min</div>
+            </div>
+            <div class="stage-box" style="margin-bottom: 15px;">
+                <div class="stage-num">5</div>
+                <div class="stage-content">Traefik Setup: Reverse proxy & SSL configuration</div>
+                <div class="stage-time">2-5 min</div>
+            </div>
+            <div class="stage-box" style="margin-bottom: 15px;">
+                <div class="stage-num">6</div>
+                <div class="stage-content">Health Validation: Test endpoints & verify</div>
+                <div class="stage-time">1-3 min</div>
+            </div>
+            <div class="stage-box">
+                <div class="stage-num">7</div>
+                <div class="stage-content">Summary Display: Show endpoints & next steps</div>
+                <div class="stage-time">instant</div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Infrastructure Components -->
+        <div class="slide">
+            <h2>Infrastructure Components</h2>
+            <h3>AWS Services Used</h3>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <strong>VPC (Virtual Private Cloud)</strong>
+                    <p>Isolated network with public & private subnets</p>
+                </div>
+                <div class="feature-item">
+                    <strong>Internet Gateway</strong>
+                    <p>Enables communication with the internet</p>
+                </div>
+                <div class="feature-item">
+                    <strong>NAT Gateway</strong>
+                    <p>Allows private instances to access internet</p>
+                </div>
+                <div class="feature-item">
+                    <strong>Application Load Balancer</strong>
+                    <p>Distributes traffic across instances</p>
+                </div>
+                <div class="feature-item">
+                    <strong>Auto Scaling Group</strong>
+                    <p>Automatically scales EC2 instances</p>
+                </div>
+                <div class="feature-item">
+                    <strong>EC2 Instances</strong>
+                    <p>Virtual machines running applications</p>
+                </div>
+                <div class="feature-item">
+                    <strong>Security Groups</strong>
+                    <p>Virtual firewalls controlling traffic</p>
+                </div>
+                <div class="feature-item">
+                    <strong>IAM Roles</strong>
+                    <p>Permission management for resources</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 7: Technology Stack -->
+        <div class="slide">
+            <h2>Technology Stack</h2>
+            <div class="grid-2">
+                <div class="card">
+                    <h4>Infrastructure</h4>
+                    <p>• Terraform 1.0+</p>
+                    <p>• AWS EC2, VPC, ALB</p>
+                    <p>• Auto Scaling Groups</p>
+                    <p>• Security Groups & IAM</p>
+                </div>
+                <div class="card">
+                    <h4>Configuration Management</h4>
+                    <p>• Ansible 2.9+</p>
+                    <p>• Playbooks & Roles</p>
+                    <p>• Dynamic Inventory</p>
+                    <p>• Task Automation</p>
+                </div>
+                <div class="card">
+                    <h4>Containerization</h4>
+                    <p>• Docker</p>
+                    <p>• Docker Compose</p>
+                    <p>• Container Images</p>
+                    <p>• Service Orchestration</p>
+                </div>
+                <div class="card">
+                    <h4>Networking & Security</h4>
+                    <p>• Traefik Reverse Proxy</p>
+                    <p>• SSL/TLS (Let's Encrypt)</p>
+                    <p>• HTTP/HTTPS Routing</p>
+                    <p>• Rate Limiting & CORS</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Terraform - Infrastructure as Code -->
+        <div class="slide">
+            <h2>Terraform: Infrastructure as Code</h2>
+            <h3>What Does Terraform Do?</h3>
+            <ul style="margin-top: 20px;">
+                <li>Defines entire AWS infrastructure in code</li>
+                <li>Creates VPC, subnets, gateways, ALB, ASG, EC2</li>
+                <li>Manages security groups and IAM roles</li>
+                <li>Generates Ansible inventory from instances</li>
+                <li>Orchestrates Ansible deployment</li>
+                <li>Validates health checks</li>
+            </ul>
+            <h3 style="margin-top: 30px;">Key Files</h3>
+            <div class="code-block">
+main.tf           → Core infrastructure resources
+variables.tf      → Configuration variables
+outputs.tf        → Exported values
+deployment.tf     → Deployment orchestration
+terraform.tfvars  → Your configuration values
+            </div>
+        </div>
+
+        <!-- Slide 9: Ansible - Configuration Management -->
+        <div class="slide">
+            <h2>Ansible: Configuration Management</h2>
+            <h3>What Does Ansible Do?</h3>
+            <ul style="margin-top: 20px;">
+                <li>Automatically configures EC2 instances</li>
+                <li>Installs system packages & dependencies</li>
+                <li>Deploys Docker containers</li>
+                <li>Starts services and applications</li>
+                <li>Manages configuration files</li>
+                <li>Idempotent (safe to run multiple times)</li>
+            </ul>
+            <h3 style="margin-top: 30px;">Ansible Roles</h3>
+            <div class="code-block">
+dependencies/  → Install system packages, Docker
+deploy/        → Deploy applications & containers
+monitoring/    → Setup monitoring & logging
+            </div>
+        </div>
+
+        <!-- Slide 10: Applications Deployed -->
+        <div class="slide">
+            <h2>Applications Deployed</h2>
+            <h3>What Gets Deployed</h3>
+            <div class="grid-2" style="margin-top: 20px;">
+                <div class="card">
+                    <h4>🎨 Frontend</h4>
+                    <p><strong>Vue.js</strong> - Single Page Application</p>
+                    <p>Location: /frontend</p>
+                    <p>Port: 8080</p>
+                </div>
+                <div class="card">
+                    <h4>🔐 Auth API</h4>
+                    <p><strong>Go</strong> - JWT Authentication</p>
+                    <p>Location: /auth-api</p>
+                    <p>Port: 3000</p>
+                </div>
+                <div class="card">
+                    <h4>📝 Todo API</h4>
+                    <p><strong>Node.js</strong> - REST API</p>
+                    <p>Location: /todos-api</p>
+                    <p>Port: 3001</p>
+                </div>
+                <div class="card">
+                    <h4>👥 Users API</h4>
+                    <p><strong>Java/Spring</strong> - User Management</p>
+                    <p>Location: /users-api</p>
+                    <p>Port: 3002</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 11: Docker & Containerization -->
+        <div class="slide">
+            <h2>Docker & Containerization</h2>
+            <h3>Why Docker?</h3>
+            <ul style="margin-top: 20px;">
+                <li><strong>Consistency:</strong> Same environment everywhere</li>
+                <li><strong>Portability:</strong> Run on any machine</li>
+                <li><strong>Scalability:</strong> Easy to replicate</li>
+                <li><strong>Isolation:</strong> Services don't interfere</li>
+                <li><strong>Efficiency:</strong> Lightweight & fast</li>
+            </ul>
+            <h3 style="margin-top: 30px;">Docker Services in This Project</h3>
+            <div class="code-block">
+frontend      → Nginx serving Vue.js SPA
+auth-api      → Go authentication service
+todos-api     → Node.js Todo service
+users-api     → Java user management
+log-processor → Message processing & logging
+traefik       → Reverse proxy & load balancer
+            </div>
+        </div>
+
+        <!-- Slide 12: Traefik Reverse Proxy -->
+        <div class="slide">
+            <h2>Traefik: Reverse Proxy & Load Balancer</h2>
+            <h3>What is Traefik?</h3>
+            <p>A modern HTTP reverse proxy and load balancer that:</p>
+            <ul style="margin-top: 20px;">
+                <li>Routes incoming traffic to correct services</li>
+                <li>Handles SSL/TLS encryption (HTTPS)</li>
+                <li>Automatically manages certificates</li>
+                <li>Provides load balancing</li>
+                <li>Offers middleware (rate limiting, CORS, etc.)</li>
+            </ul>
+            <h3 style="margin-top: 30px;">Flow</h3>
+            <div class="code-block">
+User Request (HTTPS)
+    ↓
+Traefik (Port 443)
+    ↓
+Check routing rules
+    ↓
+Forward to correct service (frontend/api)
+    ↓
+Service returns response
+    ↓
+Traefik sends back to user
+            </div>
+        </div>
+
+        <!-- Slide 13: SSL/TLS Certificates -->
+        <div class="slide">
+            <h2>SSL/TLS Certificates</h2>
+            <h3>Security & HTTPS</h3>
+            <ul style="margin-top: 20px;">
+                <li><strong>SSL/TLS:</strong> Encrypts communication between user and server</li>
+                <li><strong>HTTPS:</strong> HTTP over SSL/TLS</li>
+                <li><strong>Certificates:</strong> Verify server identity</li>
+                <li><strong>Let's Encrypt:</strong> Free, automatic certificate renewal</li>
+            </ul>
+            <h3 style="margin-top: 30px;">In This Project</h3>
+            <div class="code-block">
+• Traefik manages SSL certificates
+• Let's Encrypt provides free certificates
+• Automatic renewal before expiration
+• HTTP redirects to HTTPS
+• All traffic encrypted
+            </div>
+            <p style="margin-top: 30px;"><strong>Result:</strong> Users see a secure lock 🔒 in their browser.</p>
+        </div>
+
+        <!-- Slide 14: How to Deploy -->
+        <div class="slide">
+            <h2>How to Deploy: Step by Step</h2>
+            <h3>Prerequisites (5 minutes)</h3>
+            <div class="code-block">
+# Install tools
+brew install terraform awscli ansible jq
+
+# Configure AWS
+export AWS_ACCESS_KEY_ID="your-key"
+export AWS_SECRET_ACCESS_KEY="your-secret"
+export AWS_REGION="us-east-1"
+            </div>
+            <h3>Initialize (5 minutes)</h3>
+            <div class="code-block">
+cd infra
+make setup-backend
+terraform init
+terraform validate
+            </div>
+            <h3>Deploy (10-30 minutes)</h3>
+            <div class="code-block">
+terraform apply -auto-approve
+            </div>
+        </div>
+
+        <!-- Slide 15: Configuration -->
+        <div class="slide">
+            <h2>Configuration: terraform.tfvars</h2>
+            <div class="code-block">
+# Infrastructure
+aws_region              = "us-east-1"
+project_name            = "devops-stage-6"
+environment             = "dev"
+instance_type           = "t3.medium"
+asg_desired_capacity    = 2
+
+# Deployment
+instance_ready_timeout  = 300
+enable_ssl              = true
+ssl_provider            = "letsencrypt"
+traefik_acme_email      = "your-email@example.com"
+
+# Validation
+deployment_health_check_retries = 30
+deployment_log_level    = "info"
+            </div>
+            <p style="margin-top: 20px;"><strong>Note:</strong> All variables have sensible defaults. Customize as needed.</p>
+        </div>
+
+        <!-- Slide 16: After Deployment -->
+        <div class="slide">
+            <h2>After Deployment: Access Your App</h2>
+            <h3>Get the Application URL</h3>
+            <div class="code-block">
+cd infra
+terraform output alb_dns_name
+
+# Output: app-xxxxx.us-east-1.elb.amazonaws.com
+            </div>
+            <h3>Access Your Application</h3>
+            <div class="code-block">
+# Browser or curl
+http://app-xxxxx.us-east-1.elb.amazonaws.com
+
+# It automatically redirects to HTTPS
+https://app-xxxxx.us-east-1.elb.amazonaws.com
+            </div>
+            <h3>View All Outputs</h3>
+            <div class="code-block">
+terraform output -json
+            </div>
+        </div>
+
+        <!-- Slide 17: Idempotency: Run It Again -->
+        <div class="slide">
+            <h2>Idempotency: The Power of IaC</h2>
+            <h3>Safe to Run Multiple Times</h3>
+            <div class="code-block">
+# First run: Creates everything
+terraform apply -auto-approve
+[Creates all resources...]
+
+# Second run: No changes
+terraform apply -auto-approve
+No changes. Your infrastructure matches the configuration.
+
+# Third run: Still no changes
+terraform apply -auto-approve
+No changes. Your infrastructure matches the configuration.
+            </div>
+            <h3>Why This Matters</h3>
+            <ul style="margin-top: 20px;">
+                <li><strong>Safe:</strong> Won't recreate or destroy resources</li>
+                <li><strong>Predictable:</strong> Same result every time</li>
+                <li><strong>CI/CD Friendly:</strong> Perfect for automation</li>
+                <li><strong>Disaster Recovery:</strong> Rebuild on demand</li>
+            </ul>
+        </div>
+
+        <!-- Slide 18: Scaling: Adding More Instances -->
+        <div class="slide">
+            <h2>Scaling: Add More Instances</h2>
+            <h3>Step 1: Edit Configuration</h3>
+            <div class="code-block">
+# Edit terraform.tfvars
+asg_desired_capacity = 3  # Changed from 2
+            </div>
+            <h3>Step 2: Deploy</h3>
+            <div class="code-block">
+terraform apply -auto-approve
+            </div>
+            <h3>What Happens Automatically</h3>
+            <ul style="margin-top: 20px;">
+                <li>✅ 1 new EC2 instance launched</li>
+                <li>✅ Instance joins Auto Scaling Group</li>
+                <li>✅ Instance passes health checks</li>
+                <li>✅ Inventory updated automatically</li>
+                <li>✅ Ansible deployed to new instance</li>
+                <li>✅ Registered with load balancer</li>
+                <li>✅ Starts receiving traffic</li>
+            </ul>
+        </div>
+
+        <!-- Slide 19: Key Features & Benefits -->
+        <div class="slide">
+            <h2>Key Features & Benefits</h2>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <strong>✅ One-Command Deployment</strong>
+                    <p>Everything from one terraform command</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Idempotent</strong>
+                    <p>Safe to run multiple times</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Highly Available</strong>
+                    <p>Multiple instances behind load balancer</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Scalable</strong>
+                    <p>Easy to add/remove instances</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Secure</strong>
+                    <p>SSL/TLS encryption, security groups</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Observable</strong>
+                    <p>Detailed logging and monitoring</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Automated</strong>
+                    <p>Infrastructure + apps + validation</p>
+                </div>
+                <div class="feature-item">
+                    <strong>✅ Documented</strong>
+                    <p>Comprehensive guides & checklists</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 20: Disaster Recovery -->
+        <div class="slide">
+            <h2>Disaster Recovery & Rebuilding</h2>
+            <h3>Complete Disaster: Everything Down</h3>
+            <div class="code-block">
+# Step 1: Destroy everything
+terraform destroy -auto-approve
+
+# Step 2: Rebuild from scratch
+terraform apply -auto-approve
+
+# Result: Brand new infrastructure in 10-30 minutes
+            </div>
+            <h3>Partial Recovery: Instance Down</h3>
+            <ul style="margin-top: 20px;">
+                <li>Auto Scaling Group detects failure</li>
+                <li>Automatically launches replacement instance</li>
+                <li>Ansible deploys to new instance</li>
+                <li>Service restored automatically</li>
+            </ul>
+            <h3>Configuration Change: Update Settings</h3>
+            <div class="code-block">
+# Edit terraform.tfvars
+# Run terraform apply
+# Only changed resources are updated
+            </div>
+        </div>
+
+        <!-- Slide 21: Monitoring & Troubleshooting -->
+        <div class="slide">
+            <h2>Monitoring & Troubleshooting</h2>
+            <h3>View Infrastructure Status</h3>
+            <div class="code-block">
+# Check instances
+aws ec2 describe-instances
+
+# Check ALB health
+aws elbv2 describe-target-health --target-group-arn <arn>
+
+# Check Ansible inventory
+cat infra/inventory/hosts.ini
+
+# Test Ansible connectivity
+make -C infra ping-hosts
+            </div>
+            <h3>Access Instance Logs</h3>
+            <div class="code-block">
+# SSH to instance
+ssh -i ~/.ssh/id_rsa ec2-user@<private-ip>
+
+# View startup logs
+tail -f /var/log/user-data.log
+
+# Check Docker containers
+docker ps
+docker logs <container-name>
+            </div>
+        </div>
+
+        <!-- Slide 22: CI/CD Integration -->
+        <div class="slide">
+            <h2>CI/CD Integration</h2>
+            <h3>Automated Deployment Pipeline</h3>
+            <div class="code-block">
+GitHub → Push code
+    ↓
+GitHub Actions → Triggered
+    ↓
+Workflow Steps:
+  1. Checkout code
+  2. Setup Terraform
+  3. Configure AWS credentials
+  4. terraform init
+  5. terraform validate
+  6. terraform plan
+  7. terraform apply -auto-approve
+    ↓
+Deployment Complete
+    ↓
+Test & Validation
+            </div>
+            <h3>Result</h3>
+            <p>Every code push automatically deploys to production with validation!</p>
+        </div>
+
+        <!-- Slide 23: Cost Estimation -->
+        <div class="slide">
+            <h2>Cost Estimation</h2>
+            <h3>Monthly AWS Costs (Approximate)</h3>
+            <div class="grid-2">
+                <div class="card">
+                    <h4>Component</h4>
+                    <p>ALB</p>
+                    <p>EC2 t3.medium (1 instance)</p>
+                    <p>Data Transfer</p>
+                    <p>EIP (NAT)</p>
+                    <p>VPC & other</p>
+                </div>
+                <div class="card">
+                    <h4>Cost</h4>
+                    <p>~$20</p>
+                    <p>~$30-40</p>
+                    <p>~$10-15</p>
+                    <p>~$5</p>
+                    <p>~$5</p>
+                </div>
+            </div>
+            <p style="margin-top: 30px;"><strong>2 Instances:</strong> ~$100-150/month</p>
+            <p><strong>Free tier eligible:</strong> t3.micro, 750 hours ALB</p>
+            <p style="margin-top: 20px;"><em>Costs vary by region and usage. Estimate using AWS Calculator.</em></p>
+        </div>
+
+        <!-- Slide 24: Documentation & Resources -->
+        <div class="slide">
+            <h2>Documentation & Resources</h2>
+            <h3>Available Documentation</h3>
+            <ul style="margin-top: 20px;">
+                <li><strong>Quick Reference:</strong> 3 pages, 5-minute read</li>
+                <li><strong>Complete Deployment Guide:</strong> 20+ pages, detailed instructions</li>
+                <li><strong>Deployment Checklist:</strong> 300+ items, step-by-step verification</li>
+                <li><strong>Verification Guide:</strong> 16 pages, pre & post-deployment checks</li>
+                <li><strong>Implementation Details:</strong> 20+ pages, technical deep dive</li>
+                <li><strong>Complete Index:</strong> Navigation & links to all resources</li>
+            </ul>
+            <h3 style="margin-top: 30px;">External Resources</h3>
+            <ul>
+                <li>Terraform AWS Provider: registry.terraform.io</li>
+                <li>Ansible Documentation: docs.ansible.com</li>
+                <li>Traefik Documentation: doc.traefik.io</li>
+                <li>AWS Documentation: docs.aws.amazon.com</li>
+            </ul>
+        </div>
+
+        <!-- Slide 25: Summary & Next Steps -->
+        <div class="slide">
+            <h2>Summary & Next Steps</h2>
+            <h3>What You've Learned</h3>
+            <ul style="margin-top: 20px;">
+                <li>Complete modern DevOps infrastructure setup</li>
+                <li>Infrastructure as Code with Terraform</li>
+                <li>Configuration management with Ansible</li>
+                <li>Docker containerization</li>
+                <li>Reverse proxy & SSL/TLS with Traefik</li>
+                <li>Deployment automation & orchestration</li>
+                <li>Scaling and disaster recovery</li>
+            </ul>
+            <h3 style="margin-top: 30px;">Next Steps</h3>
+            <ol style="margin-top: 20px;">
+                <li>Review the <span class="highlight">Quick Reference</span></li>
+                <li>Install required tools</li>
+                <li>Configure AWS credentials</li>
+                <li>Run <span class="highlight">terraform apply -auto-approve</span></li>
+                <li>Monitor the 7-stage deployment</li>
+                <li>Access your application</li>
+                <li>Explore and customize!</li>
+            </ol>
+        </div>
+
+        <!-- Slide 26: Questions -->
+        <div class="slide title-slide">
+            <h1>Questions?</h1>
+            <p style="margin-top: 50px; font-size: 1.3em;">Review the comprehensive documentation for detailed information.</p>
+            <p style="margin-top: 100px; font-size: 1.1em;">Ready to deploy?</p>
+            <div class="code-block" style="background: rgba(255,255,255,0.1); color: white; margin-top: 30px;">
+cd infra
+terraform apply -auto-approve
+            </div>
+            <p style="margin-top: 50px; font-size: 1em; opacity: 0.8;">Thank you! 🎉</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="previousSlide()">← Previous</button>
+        <button onclick="nextSlide()">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = document.querySelectorAll('.slide').length;
+        
+        document.getElementById('total').textContent = totalSlides;
+        
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            
+            if (n > totalSlides) currentSlide = totalSlides;
+            if (n < 1) currentSlide = 1;
+            
+            slides.forEach(slide => slide.classList.remove('active'));
+            slides[currentSlide - 1].classList.add('active');
+            
+            document.getElementById('current').textContent = currentSlide;
+        }
+        
+        function nextSlide() {
+            currentSlide++;
+            showSlide(currentSlide);
+        }
+        
+        function previousSlide() {
+            currentSlide--;
+            showSlide(currentSlide);
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') previousSlide();
+        });
+        
+        showSlide(currentSlide);
+    </script>
+</body>
+</html>
