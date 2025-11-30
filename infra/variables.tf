@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region for infrastructure"
   type        = string
-  default     = "us-east-1"
+  default     = "eu-west-2"
 }
 
 variable "project_name" {
@@ -21,34 +21,34 @@ variable "environment" {
   }
 }
 
+# Existing VPC Configuration
+variable "vpc_id" {
+  description = "Existing VPC ID to use for deployment"
+  type        = string
+  default     = "vpc-0bc57eb51ad568c41"
+}
+
 variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+  description = "CIDR block of existing VPC (for reference)"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "172.31.0.0/16"
 }
 
-variable "public_subnet_cidr" {
-  description = "CIDR block for first public subnet"
+variable "subnet_id" {
+  description = "Existing subnet ID for EC2 instance"
   type        = string
-  default     = "10.0.4.0/24"
-}
+  default     = ""
 
-variable "private_subnet_cidr" {
-  description = "CIDR block for private subnet"
-  type        = string
-  default     = "10.0.2.0/24"
-}
-
-variable "public_subnet_2_cidr" {
-  description = "CIDR block for second public subnet"
-  type        = string
-  default     = "10.0.5.0/24"
+  validation {
+    condition     = can(regex("^subnet-", var.subnet_id)) || var.subnet_id == ""
+    error_message = "Subnet ID must start with 'subnet-' or be empty"
+  }
 }
 
 variable "ami_id" {
-  description = "AMI ID for EC2 instances"
+  description = "AMI ID for EC2 instance"
   type        = string
-  default     = "ami-0c55b159cbfafe1f0" # Amazon Linux 2 in us-east-1
+  default     = "ami-03f3a22c5f8f5ef58" # Amazon Linux 2 in eu-west-2
 
   validation {
     condition     = can(regex("^ami-", var.ami_id))
@@ -59,7 +59,7 @@ variable "ami_id" {
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
-  default     = "t3.medium"
+  default     = "t2.micro"
 
   validation {
     condition     = can(regex("^t[2-4]\\.", var.instance_type)) || can(regex("^m[5-7]\\.", var.instance_type))
@@ -67,37 +67,10 @@ variable "instance_type" {
   }
 }
 
-variable "asg_min_size" {
-  description = "Minimum number of instances in ASG"
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.asg_min_size > 0
-    error_message = "Minimum size must be greater than 0"
-  }
-}
-
-variable "asg_max_size" {
-  description = "Maximum number of instances in ASG"
-  type        = number
-  default     = 3
-
-  validation {
-    condition     = var.asg_max_size >= var.asg_min_size
-    error_message = "Maximum size must be >= minimum size"
-  }
-}
-
-variable "asg_desired_capacity" {
-  description = "Desired number of instances in ASG"
-  type        = number
-  default     = 2
-
-  validation {
-    condition     = var.asg_desired_capacity >= var.asg_min_size && var.asg_desired_capacity <= var.asg_max_size
-    error_message = "Desired capacity must be between min and max sizes"
-  }
+variable "instance_name" {
+  description = "Name tag for the EC2 instance"
+  type        = string
+  default     = "devops-stage-6-app"
 }
 
 variable "ssh_allowed_cidr" {
@@ -111,16 +84,10 @@ variable "ssh_allowed_cidr" {
   }
 }
 
-variable "ansible_playbook_bucket" {
-  description = "S3 bucket containing Ansible playbooks"
+variable "ssh_key_name" {
+  description = "EC2 key pair name for SSH access"
   type        = string
-  default     = "devops-stage-6-ansible-playbooks"
-}
-
-variable "terraform_state_bucket" {
-  description = "S3 bucket for storing Terraform state"
-  type        = string
-  default     = "devops-stage-6-terraform-state"
+  default     = ""
 }
 
 variable "tags" {
@@ -129,7 +96,7 @@ variable "tags" {
   default = {
     Terraform   = "true"
     ManagedBy   = "terraform"
-    CreatedDate = "2025-11-28"
+    CreatedDate = "2025-11-30"
   }
 }
 

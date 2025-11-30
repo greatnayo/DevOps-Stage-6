@@ -1,90 +1,67 @@
 output "vpc_id" {
   description = "VPC ID"
-  value       = aws_vpc.main.id
+  value       = var.vpc_id
 }
 
-output "public_subnet_ids" {
-  description = "Public subnet IDs"
-  value       = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+output "instance_id" {
+  description = "EC2 Instance ID"
+  value       = aws_instance.app.id
 }
 
-output "private_subnet_id" {
-  description = "Private subnet ID"
-  value       = aws_subnet.private.id
+output "instance_private_ip" {
+  description = "Private IP address of the EC2 instance"
+  value       = aws_instance.app.private_ip
 }
 
-output "alb_dns_name" {
-  description = "DNS name of the load balancer"
-  value       = aws_lb.main.dns_name
+output "instance_public_ip" {
+  description = "Elastic IP address of the EC2 instance"
+  value       = aws_eip.app.public_ip
 }
 
-output "alb_arn" {
-  description = "ARN of the load balancer"
-  value       = aws_lb.main.arn
+output "instance_public_dns" {
+  description = "Public DNS name of the EC2 instance"
+  value       = aws_eip.app.public_dns
 }
 
-output "target_group_arn" {
-  description = "ARN of the target group"
-  value       = aws_lb_target_group.main.arn
-}
-
-output "asg_name" {
-  description = "Name of the Auto Scaling Group"
-  value       = aws_autoscaling_group.app.name
-}
-
-output "asg_arn" {
-  description = "ARN of the Auto Scaling Group"
-  value       = aws_autoscaling_group.app.arn
-}
-
-output "app_security_group_id" {
-  description = "Security group ID for application servers"
+output "security_group_id" {
+  description = "Security group ID for application server"
   value       = aws_security_group.app.id
 }
 
-output "alb_security_group_id" {
-  description = "Security group ID for load balancer"
-  value       = aws_security_group.alb.id
-}
-
 output "iam_role_arn" {
-  description = "ARN of the IAM role for EC2 instances"
+  description = "ARN of the IAM role for EC2 instance"
   value       = aws_iam_role.app.arn
 }
 
-output "inventory_file_path" {
-  description = "Path to generated Ansible inventory file"
-  value       = local_file.ansible_inventory.filename
+output "cloudwatch_log_group" {
+  description = "CloudWatch log group for application"
+  value       = aws_cloudwatch_log_group.app.name
 }
 
-output "nat_gateway_ip" {
-  description = "Elastic IP of the NAT Gateway"
-  value       = aws_eip.nat.public_ip
+output "application_url" {
+  description = "URL to access the application"
+  value       = "http://${aws_eip.app.public_ip}"
 }
 
-output "terraform_state_bucket" {
-  description = "S3 bucket for Terraform state"
-  value       = var.terraform_state_bucket
-  sensitive   = true
+output "traefik_dashboard_url" {
+  description = "URL to access Traefik dashboard"
+  value       = "http://${aws_eip.app.public_ip}:8080/dashboard/"
 }
 
-output "drift_detection_enabled" {
-  description = "Whether drift detection is enabled"
-  value       = true
+output "ssh_command" {
+  description = "SSH command to connect to the instance"
+  value       = "ssh -i <your-key.pem> ec2-user@${aws_eip.app.public_ip}"
 }
 
 output "infrastructure_summary" {
   description = "Summary of provisioned infrastructure"
   value = {
-    environment     = var.environment
-    project         = var.project_name
-    region          = var.aws_region
-    asg_name        = aws_autoscaling_group.app.name
-    alb_endpoint    = aws_lb.main.dns_name
-    min_capacity    = var.asg_min_size
-    max_capacity    = var.asg_max_size
-    desired_capacity = var.asg_desired_capacity
-    state_backend   = "s3"
+    environment        = var.environment
+    project            = var.project_name
+    region             = var.aws_region
+    vpc_id             = var.vpc_id
+    instance_type      = var.instance_type
+    instance_public_ip = aws_eip.app.public_ip
+    state_backend      = "local"
   }
 }

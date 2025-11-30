@@ -11,156 +11,37 @@ terraform {
       version = "~> 2.0"
     }
   }
-
-
 }
 
 provider "aws" {
   region = var.aws_region
 }
 
-# Create VPC
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+# Data source to get the existing VPC
+data "aws_vpc" "existing" {
+  id = var.vpc_id
+}
 
-  tags = {
-    Name        = "${var.project_name}-vpc"
-    Environment = var.environment
+# Data source to get available subnets in the VPC
+data "aws_subnets" "available" {
+  filter {
+    name   = "vpc-id"
+    values = [var.vpc_id]
   }
 }
 
-# Create Public Subnet 1
-resource "aws_subnet" "public_1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_cidr
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name        = "${var.project_name}-public-subnet-1"
-    Environment = var.environment
-  }
+# Use provided subnet or select the first available
+locals {
+  subnet_id = var.subnet_id != "" ? var.subnet_id : data.aws_subnets.available.ids[0]
 }
 
-# Create Public Subnet 2
-resource "aws_subnet" "public_2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_2_cidr
-  availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
+# Security Group for Application
+resource "aws_security_group" "app" {
+  name_prefix = "${var.project_name}-app-"
+  description = "Security group for ${var.project_name} application"
+  vpc_id      = var.vpc_id
 
-  tags = {
-    Name        = "${var.project_name}-public-subnet-2"
-    Environment = var.environment
-  }
-}
-
-# Create Private Subnet
-resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidr
-  availability_zone = data.aws_availability_zones.available.names[0]
-
-  tags = {
-    Name        = "${var.project_name}-private-subnet"
-    Environment = var.environment
-  }
-}
-
-# Create Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name        = "${var.project_name}-igw"
-    Environment = var.environment
-  }
-}
-
-# Create Public Route Table
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name        = "${var.project_name}-public-rt"
-    Environment = var.environment
-  }
-}
-
-# Associate Public Subnets with Route Table
-resource "aws_route_table_association" "public_1" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public.id
-}
-
-# Elastic IP for NAT Gateway
-resource "aws_eip" "nat" {
-  domain = "vpc"
-
-  tags = {
-    Name        = "${var.project_name}-nat-eip"
-    Environment = var.environment
-  }
-
-  depends_on = [aws_internet_gateway.main]
-}
-
-# Create NAT Gateway
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public_1.id
-
-  tags = {
-    Name        = "${var.project_name}-nat"
-    Environment = var.environment
-  }
-
-  depends_on = [aws_internet_gateway.main]
-}
-
-# Create Private Route Table
-resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
-  }
-
-  tags = {
-    Name        = "${var.project_name}-private-rt"
-    Environment = var.environment
-  }
-}
-
-# Associate Private Subnet with Route Table
-resource "aws_route_table_association" "private" {
-  subnet_id      = aws_subnet.private.id
-  route_table_id = aws_route_table.private.id
-}
-
-# Data source to get available AZs
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# Security Group for ALB
-resource "aws_security_group" "alb" {
-  name_prefix = "${var.project_name}-alb-"
-  vpc_id      = aws_vpc.main.id
-
+  # HTTP
   ingress {
     from_port   = 80
     to_port     = 80
@@ -168,6 +49,7 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # HTTPS
   ingress {
     from_port   = 443
     to_port     = 443
@@ -175,35 +57,15 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+  # Traefik API (dashboard)
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name        = "${var.project_name}-alb-sg"
-    Environment = var.environment
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# Security Group for Application Servers
-resource "aws_security_group" "app" {
-  name_prefix = "${var.project_name}-app-"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port       = 0
-    to_port         = 65535
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
+  # SSH
   ingress {
     from_port   = 22
     to_port     = 22
@@ -211,6 +73,7 @@ resource "aws_security_group" "app" {
     cidr_blocks = var.ssh_allowed_cidr
   }
 
+  # All outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -218,138 +81,23 @@ resource "aws_security_group" "app" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name        = "${var.project_name}-app-sg"
-    Environment = var.environment
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# Application Load Balancer
-resource "aws_lb" "main" {
-  name_prefix        = "app"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
-  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
-
-  enable_deletion_protection = false
-
-  tags = {
-    Name        = "${var.project_name}-alb"
-    Environment = var.environment
-  }
-}
-
-# ALB Target Group
-resource "aws_lb_target_group" "main" {
-  name_prefix = "app"
-  port        = 8080
-  protocol    = "HTTP"
-  vpc_id      = aws_vpc.main.id
-
-  health_check {
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    timeout             = 3
-    interval            = 30
-    path                = "/health"
-    matcher             = "200"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-tg"
-    Environment = var.environment
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# ALB Listener
-resource "aws_lb_listener" "main" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
-  }
-}
-
-# Launch Template for EC2 instances
-resource "aws_launch_template" "app" {
-  name_prefix   = "${var.project_name}-"
-  image_id      = var.ami_id
-  instance_type = var.instance_type
-
-  iam_instance_profile {
-    arn = aws_iam_instance_profile.app.arn
-  }
-
-  vpc_security_group_ids = [aws_security_group.app.id]
-
-  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    ansible_playbook_bucket = var.ansible_playbook_bucket
-    environment             = var.environment
-  }))
-
-  tag_specifications {
-    resource_type = "instance"
-
-    tags = {
-      Name        = "${var.project_name}-app"
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.project_name}-app-sg"
       Environment = var.environment
     }
-  }
+  )
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
-# Auto Scaling Group
-resource "aws_autoscaling_group" "app" {
-  name                = "${var.project_name}-asg"
-  vpc_zone_identifier = [aws_subnet.private.id]
-  target_group_arns   = [aws_lb_target_group.main.arn]
-  health_check_type   = "ELB"
-  health_check_grace_period = 300
-
-  min_size         = var.asg_min_size
-  max_size         = var.asg_max_size
-  desired_capacity = var.asg_desired_capacity
-
-  launch_template {
-    id      = aws_launch_template.app.id
-    version = "$Latest"
-  }
-
-  tag {
-    key                 = "Name"
-    value               = "${var.project_name}-asg-instance"
-    propagate_at_launch = true
-  }
-
-  tag {
-    key                 = "Environment"
-    value               = var.environment
-    propagate_at_launch = true
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# IAM Role for EC2 instances
+# IAM Role for EC2 instance
 resource "aws_iam_role" "app" {
   name_prefix = "${var.project_name}-"
+  description = "IAM role for ${var.project_name} EC2 instance"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -364,10 +112,13 @@ resource "aws_iam_role" "app" {
     ]
   })
 
-  tags = {
-    Name        = "${var.project_name}-app-role"
-    Environment = var.environment
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.project_name}-app-role"
+      Environment = var.environment
+    }
+  )
 }
 
 # IAM Instance Profile
@@ -376,9 +127,9 @@ resource "aws_iam_instance_profile" "app" {
   role        = aws_iam_role.app.name
 }
 
-# IAM Policy for EC2 to access S3 (for Ansible playbooks)
-resource "aws_iam_role_policy" "app_s3_access" {
-  name_prefix = "${var.project_name}-s3-"
+# IAM Policy for CloudWatch Logs
+resource "aws_iam_role_policy" "app_cloudwatch" {
+  name_prefix = "${var.project_name}-cw-"
   role        = aws_iam_role.app.id
 
   policy = jsonencode({
@@ -387,54 +138,146 @@ resource "aws_iam_role_policy" "app_s3_access" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
         ]
-        Resource = [
-          "arn:aws:s3:::${var.ansible_playbook_bucket}",
-          "arn:aws:s3:::${var.ansible_playbook_bucket}/*"
+        Resource = "arn:aws:logs:${var.aws_region}:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances",
+          "ec2:DescribeTags"
         ]
+        Resource = "*"
       }
     ]
   })
+}
+
+# Single EC2 Instance
+resource "aws_instance" "app" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  subnet_id     = local.subnet_id
+  key_name      = var.ssh_key_name != "" ? var.ssh_key_name : null
+
+  iam_instance_profile = aws_iam_instance_profile.app.name
+  security_groups      = [aws_security_group.app.id]
+
+  associate_public_ip_address = true
+
+  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
+    environment  = var.environment
+    project_name = var.project_name
+  }))
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
+  monitoring = true
+
+  tags = merge(
+    var.tags,
+    {
+      Name        = var.instance_name
+      Environment = var.environment
+    }
+  )
+
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = 30
+    delete_on_termination = true
+    encrypted             = false
+
+    tags = merge(
+      var.tags,
+      {
+        Name = "${var.instance_name}-root"
+      }
+    )
+  }
+
+  depends_on = [aws_security_group.app]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Elastic IP for the instance
+resource "aws_eip" "app" {
+  domain   = "vpc"
+  instance = aws_instance.app.id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.project_name}-eip"
+      Environment = var.environment
+    }
+  )
+
+  depends_on = [aws_instance.app]
 }
 
 # Local provisioner to generate Ansible inventory
 resource "local_file" "ansible_inventory" {
   filename = "${path.module}/inventory/hosts.ini"
 
-  content = templatefile("${path.module}/templates/inventory.tpl", {
-    asg_name           = aws_autoscaling_group.app.name
-    target_group_arn   = aws_lb_target_group.main.arn
-    alb_dns_name       = aws_lb.main.dns_name
+  content = templatefile("${path.module}/templates/inventory-single.tpl", {
+    instance_ip        = aws_instance.app.private_ip
+    instance_public_ip = aws_eip.app.public_ip
+    instance_id        = aws_instance.app.id
     environment        = var.environment
     project_name       = var.project_name
+    aws_region         = var.aws_region
   })
 
-  depends_on = [
-    aws_autoscaling_group.app,
-    aws_lb.main
-  ]
+  depends_on = [aws_instance.app, aws_eip.app]
 }
 
 # Local provisioner to call Ansible
-resource "null_resource" "ansible_provisioner" {
-  triggers = {
-    always_run = timestamp()
-    asg_id = aws_autoscaling_group.app.id
-    lb_dns = aws_lb.main.dns_name
-  }
+# Note: This is commented out as user_data script already handles ansible provisioning
+# Uncomment if needed, but ensure passwordless sudo is configured on the host machine
+# resource "null_resource" "ansible_provisioner" {
+#   triggers = {
+#     instance_id = aws_instance.app.id
+#     public_ip   = aws_eip.app.public_ip
+#   }
+#
+#   provisioner "local-exec" {
+#     command = "cd ${path.module} && bash scripts/run_ansible_single.sh"
+#
+#     environment = {
+#       ENVIRONMENT    = var.environment
+#       PROJECT_NAME   = var.project_name
+#       INSTANCE_IP    = aws_instance.app.private_ip
+#       PUBLIC_IP      = aws_eip.app.public_ip
+#       INSTANCE_ID    = aws_instance.app.id
+#       AWS_REGION     = var.aws_region
+#       INVENTORY_PATH = "${path.module}/inventory/hosts.ini"
+#     }
+#   }
+#
+#   depends_on = [local_file.ansible_inventory]
+# }
 
-  provisioner "local-exec" {
-    command = "cd ${path.module} && bash scripts/run_ansible.sh"
+# CloudWatch Log Group
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/aws/ec2/${var.project_name}"
+  retention_in_days = 7
 
-    environment = {
-      ENVIRONMENT  = var.environment
-      PROJECT_NAME = var.project_name
-      ALB_DNS_NAME = aws_lb.main.dns_name
-      INVENTORY_PATH = "${path.module}/inventory/hosts.ini"
+  tags = merge(
+    var.tags,
+    {
+      Environment = var.environment
     }
-  }
-
-  depends_on = [local_file.ansible_inventory]
+  )
 }
