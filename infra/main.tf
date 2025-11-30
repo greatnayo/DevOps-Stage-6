@@ -12,15 +12,7 @@ terraform {
     }
   }
 
-  # Remote backend configuration - uses S3 for state storage
-  # Initialize with: terraform init
-  backend "s3" {
-    bucket         = "devops-stage-6-terraform-state"
-    key            = "infra/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-locks"
-  }
+
 }
 
 provider "aws" {
@@ -39,15 +31,28 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Create Public Subnet
-resource "aws_subnet" "public" {
+# Create Public Subnet 1
+resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.public_subnet_cidr
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
 
   tags = {
-    Name        = "${var.project_name}-public-subnet"
+    Name        = "${var.project_name}-public-subnet-1"
+    Environment = var.environment
+  }
+}
+
+# Create Public Subnet 2
+resource "aws_subnet" "public_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_2_cidr
+  availability_zone       = data.aws_availability_zones.available.names[1]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name        = "${var.project_name}-public-subnet-2"
     Environment = var.environment
   }
 }
@@ -89,9 +94,14 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Associate Public Subnet with Route Table
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
+# Associate Public Subnets with Route Table
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -110,7 +120,7 @@ resource "aws_eip" "nat" {
 # Create NAT Gateway
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public.id
+  subnet_id     = aws_subnet.public_1.id
 
   tags = {
     Name        = "${var.project_name}-nat"
@@ -224,7 +234,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = [aws_subnet.public.id]
+  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
 
   enable_deletion_protection = false
 
@@ -409,9 +419,8 @@ resource "local_file" "ansible_inventory" {
 
 # Local provisioner to call Ansible
 resource "null_resource" "ansible_provisioner" {
-  provisioners = "always"
-
   triggers = {
+    always_run = timestamp()
     asg_id = aws_autoscaling_group.app.id
     lb_dns = aws_lb.main.dns_name
   }

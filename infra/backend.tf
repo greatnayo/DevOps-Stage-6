@@ -5,7 +5,7 @@ terraform {
   backend "s3" {
     # Bucket name for storing Terraform state
     # You can customize this by editing terraform/backend-config.hcl
-    bucket         = "devops-stage-6-terraform-state"
+    bucket         = "nayo53-devops-stage-6-terraform-state"
     
     # Key path within the bucket
     key            = "infra/terraform.tfstate"
