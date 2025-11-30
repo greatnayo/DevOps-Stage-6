@@ -130,7 +130,7 @@ infra/
 
 - AWS Account with appropriate permissions
 - AWS credentials configured locally: `aws configure`
-- Required IAM permissions (see IAM Policy section)
+  -4
 
 ### GitHub Requirements (for CI/CD)
 
@@ -185,8 +185,8 @@ project_name        = "devops-stage-6"
 aws_region          = "us-east-1"
 instance_type       = "t3.medium"
 asg_min_size        = 1
-asg_max_size        = 3
-asg_desired_capacity = 2
+asg_max_size        = 1
+asg_desired_capacity = 1
 ssh_allowed_cidr    = ["0.0.0.0/0"]  # Restrict this in production
 ```
 

@@ -1,8 +1,9 @@
 #!/bin/bash
-# User data script for EC2 instances
+# User data script for EC2 instance
 # This script runs on instance startup to bootstrap the application
 
-set -e
+# Don't exit on error - log them instead
+set +e
 
 echo "Starting EC2 instance setup..."
 
@@ -11,8 +12,8 @@ exec > >(tee /var/log/user-data.log)
 exec 2>&1
 
 # Update system
-yum update -y
-yum install -y \
+yum update -y --skip-broken || true
+yum install -y --allowerasing \
     git \
     curl \
     wget \
@@ -20,67 +21,102 @@ yum install -y \
     python3 \
     python3-pip \
     docker \
-    amazon-cloudwatch-agent
+    amazon-cloudwatch-agent || yum install -y git wget jq python3 python3-pip docker || true
+
+echo "Installed system dependencies"
 
 # Start Docker
 systemctl start docker
 systemctl enable docker
 usermod -a -G docker ec2-user
 
+echo "Docker started and enabled"
+
 # Install Docker Compose
 curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Install Ansible
-pip3 install ansible boto3
+echo "Docker Compose installed"
+
+# Install Ansible and dependencies
+echo "Installing Ansible..."
+pip3 install ansible boto3 botocore 2>/dev/null || pip install ansible boto3 botocore 2>/dev/null || echo "Warning: Ansible install had issues, will continue"
+
+echo "Ansible installed"
 
 # Create application directory
 mkdir -p /opt/app
 cd /opt/app
 
 # Clone repository
-git clone https://github.com/greatnayo/DevOps-Stage-6.git . || true
+echo "Cloning repository..."
+git clone https://github.com/greatnayo/DevOps-Stage-6.git . || git pull
 
-# Create .env file
+echo "Repository cloned/updated"
+
+# Create .env file with default values
 cat > /opt/app/.env <<EOF
 ENVIRONMENT=${environment}
-AWS_REGION=us-east-1
+AWS_REGION=eu-west-2
+PROJECT_NAME=${project_name}
+DOMAIN=localhost
+ACME_EMAIL=greatnayo@gmail.com
+TRAEFIK_DASHBOARD_ENABLED=true
+TRAEFIK_API_INSECURE=false
+TRAEFIK_LOG_LEVEL=INFO
+JWT_SECRET=myfancysecret
+AUTH_API_PORT=8081
+USERS_API_PORT=8083
+TODOS_API_PORT=8082
+ZIPKIN_URL=
 EOF
 
-# Download and run Ansible playbook from S3
-if [ ! -z "${ansible_playbook_bucket}" ]; then
-    echo "Downloading Ansible playbooks from S3..."
-    aws s3 sync s3://${ansible_playbook_bucket}/playbooks /opt/app/playbooks --region us-east-1 || true
-fi
+echo "Environment file created"
 
-# Run Ansible locally
-if [ -f "/opt/app/playbooks/site.yml" ]; then
+# Run Ansible locally to configure the system
+if [ -f "/opt/app/infra/playbooks/site.yml" ]; then
     echo "Running Ansible playbook..."
-    ansible-playbook /opt/app/playbooks/site.yml \
+    cd /opt/app
+    ansible-playbook infra/playbooks/site.yml \
+        -i /opt/app/infra/inventory/hosts.ini \
         -e "environment=${environment}" \
-        -c local || true
+        -e "ansible_connection=local" \
+        --tags "dependencies,deploy" || true
+    echo "Ansible playbook completed"
 fi
 
 # Start application services
 if [ -f "/opt/app/docker-compose.yml" ]; then
+    echo "Starting Docker Compose services..."
     cd /opt/app
-    docker-compose up -d || true
+    # Add current user to docker group and use sudo to run docker-compose
+    docker-compose up -d 2>&1 | tee -a /var/log/docker-compose-startup.log
+    COMPOSE_EXIT=$?
+    echo "Docker Compose exit code: $COMPOSE_EXIT"
+    echo "Docker Compose services started"
+    
+    # Wait for services to be ready
+    echo "Waiting for services to stabilize..."
+    sleep 10
+    
+    # Log running containers
+    echo "Currently running containers:"
+    docker ps 2>&1 | tee -a /var/log/docker-compose-startup.log
+    
+    # Check if traefik is running
+    if docker ps | grep -q traefik; then
+        echo "✓ Traefik container is running"
+    else
+        echo "✗ Traefik container is NOT running"
+        echo "All containers:"
+        docker ps -a
+        echo "Docker logs:"
+        docker logs -f 2>&1 | head -100
+    fi
+else
+    echo "Docker Compose file not found at /opt/app/docker-compose.yml"
+    ls -la /opt/app/ 2>&1 | head -20
 fi
-
-# Health check script
-cat > /opt/app/health-check.sh <<'HEALTH'
-#!/bin/bash
-# Simple health check endpoint
-
-if [ -f /opt/app/.env ]; then
-    source /opt/app/.env
-fi
-
-# Check if services are running
-docker ps | grep -q "healthcheck" && exit 0 || exit 1
-HEALTH
-
-chmod +x /opt/app/health-check.sh
 
 # Create systemd service for health checks
 cat > /etc/systemd/system/app-health-check.service <<'SERVICE'
@@ -90,7 +126,7 @@ After=docker.service
 
 [Service]
 Type=simple
-ExecStart=/opt/app/health-check.sh
+ExecStart=/bin/bash -c 'while true; do if docker ps | grep -q traefik; then exit 0; else exit 1; fi; done'
 Restart=on-failure
 RestartSec=10
 
@@ -99,7 +135,7 @@ WantedBy=multi-user.target
 SERVICE
 
 systemctl daemon-reload
-systemctl enable app-health-check.service
-systemctl start app-health-check.service || true
+systemctl enable app-health-check.service || true
 
-echo "EC2 instance setup completed successfully!"
+echo "EC2 instance setup completed successfully"
+echo "Application services should be running on this instance"

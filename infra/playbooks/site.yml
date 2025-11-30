@@ -4,7 +4,7 @@
 
 - name: Install System Dependencies
   hosts: all_instances
-  become: yes
+  become: "{{ ansible_connection != 'local' }}"
   gather_facts: yes
 
   roles:
@@ -16,7 +16,7 @@
 
 - name: Deploy Applications
   hosts: all_instances
-  become: yes
+  become: "{{ ansible_connection != 'local' }}"
   gather_facts: no
 
   pre_tasks:
