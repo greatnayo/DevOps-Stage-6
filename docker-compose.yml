@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.9
     container_name: traefik
     restart: unless-stopped
     ports:
@@ -73,10 +73,14 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.frontend.entrypoints=websecure"
-      # HTTP router with redirect
+      # HTTP router with redirect for domain
       - "traefik.http.routers.frontend-http.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.frontend-http.entrypoints=web"
       - "traefik.http.routers.frontend-http.middlewares=https-redirect"
+      # Catch-all router for IP access
+      - "traefik.http.routers.frontend-catchall.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend-catchall.entrypoints=web"
+      - "traefik.http.routers.frontend-catchall.priority=1"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     networks:
       - app-network
