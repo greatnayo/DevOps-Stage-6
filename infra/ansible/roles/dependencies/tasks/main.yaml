@@ -1,0 +1,94 @@
+---
+- name: Install required system packages
+  apt:
+    name: "{{ required_packages }}"
+    state: present
+    update_cache: yes
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+    update_cache: yes
+
+- name: Install Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+
+- name: Ensure Docker service is started and enabled
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add ubuntu user to docker group
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: Install system packages required for Traefik and Git
+  apt:
+    name:
+      - git
+      - curl
+      - ca-certificates
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: Install Docker Compose (standalone binary)
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: "0755"
+
+- name: Install Python Docker module
+  pip:
+    name:
+      - docker
+      - docker-compose
+    state: present
+
+- name: Verify Docker installation
+  command: docker --version
+  register: docker_version_output
+  changed_when: false
+
+- name: Display Docker version
+  debug:
+    msg: "Docker installed: {{ docker_version_output.stdout }}"
+
+- name: Verify Docker Compose installation
+  command: docker compose version
+  register: compose_version_output
+  changed_when: false
+
+- name: Display Docker Compose version
+  debug:
+    msg: "Docker Compose installed: {{ compose_version_output.stdout }}"
+
+- name: Reset SSH connection to activate docker group membership
+  meta: reset_connection
+
+- name: Verify ubuntu user can run docker commands
+  command: docker ps
+  become_user: ubuntu
+  register: docker_ps_output
+  changed_when: false
+
+- name: Display docker ps output
+  debug:
+    msg: "Docker ps output: {{ docker_ps_output.stdout }}"

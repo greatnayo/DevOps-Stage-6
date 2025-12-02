@@ -1,0 +1,36 @@
+---
+- name: Deploy TODO Application
+  hosts: todo_server
+  become: true
+  gather_facts: true
+
+  vars:
+    app_dir: /opt/app
+    compose_file: docker-compose.yml
+    domain: "nayo.katonytech.com"
+    acme_email: "greatnayo@gmail.com"
+    jwt_secret: "myfancysecret"
+    app_repo: "https://github.com/greatnayo/DevOps-Stage-6.git"
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Wait for system to be ready
+      wait_for_connection:
+        timeout: 300
+
+  roles:
+    - dependencies
+    - deploy
+
+  post_tasks:
+    - name: Display deployment information
+      debug:
+        msg:
+          - "✅ Deployment completed successfully!"
+          - "Server IP: {{ ansible_default_ipv4.address }}"
+          - "Application URL: https://nayo.katonytech.com"
+          - "SSH: ssh -i ~/.ssh/id_rsa ubuntu@{{ ansible_default_ipv4.address }}"

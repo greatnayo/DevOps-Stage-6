@@ -1,0 +1,249 @@
+2025-12-02 16:51:56,115 p=347852 u=nayo n=ansible ERROR| [ERROR]: Unexpected Exception, this is probably a bug: function() argument 'code' must be code, not str
+
+Traceback (most recent call last):
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/cli/__init__.py", line 661, in cli_executor
+    exit_code = cli.run()
+                ^^^^^^^^^
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/cli/playbook.py", line 152, in run
+    results = pbex.run()
+              ^^^^^^^^^^
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/executor/playbook_executor.py", line 108, in run
+    self._tqm.load_callbacks()
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/executor/task_queue_manager.py", line 246, in load_callbacks
+    stdout_callback = callback_loader.get(self._stdout_callback_name)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/plugins/loader.py", line 978, in get
+    ctx = self.get_with_context(name, *args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/plugins/loader.py", line 1023, in get_with_context
+    self._module_cache[path] = self._load_module_source(python_module_name=plugin_load_context._python_module_name, path=path)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/plugins/loader.py", line 942, in _load_module_source
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/usr/lib/python3/dist-packages/ansible_collections/community/general/plugins/callback/yaml.py", line 44, in <module>
+    class MyDumper(AnsibleDumper):
+TypeError: function() argument 'code' must be code, not str
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nayo/.local/lib/python3.12/site-packages/ansible/cli/__init__.py", line 670, in cli_executor
+    raise AnsibleError("Unexpected Exception, this is probably a bug.") from ex
+ansible.errors.AnsibleError: Unexpected Exception, this is probably a bug: function() argument 'code' must be code, not str
+
+
+2025-12-02 17:18:37,689 p=369923 u=nayo n=ansible WARNING| [WARNING]: Could not match supplied host pattern, ignoring: todo_server
+
+2025-12-02 17:18:37,693 p=369923 u=nayo n=ansible INFO| PLAY [Deploy TODO Application] *************************************************
+2025-12-02 17:18:37,693 p=369923 u=nayo n=ansible INFO| skipping: no hosts matched
+2025-12-02 17:18:37,693 p=369923 u=nayo n=ansible INFO| PLAY RECAP *********************************************************************
+2025-12-02 17:21:42,731 p=372931 u=nayo n=ansible INFO| PLAY [Deploy TODO Application] *************************************************
+2025-12-02 17:21:47,841 p=372931 u=nayo n=ansible INFO| TASK [Gathering Facts] *********************************************************
+2025-12-02 17:21:47,842 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:22:06,372 p=372931 u=nayo n=ansible INFO| TASK [Update apt cache] ********************************************************
+2025-12-02 17:22:06,373 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:22:09,162 p=372931 u=nayo n=ansible INFO| TASK [Wait for system to be ready] *********************************************
+2025-12-02 17:22:09,163 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:22:31,485 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Install required system packages] *************************
+2025-12-02 17:22:31,485 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:22:33,620 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Add Docker GPG key] ***************************************
+2025-12-02 17:22:33,621 p=372931 u=nayo n=ansible WARNING| [WARNING]: Module remote_tmp /root/.ansible/tmp did not exist and was created with a mode of 0700, this may cause issues when running as another user. To avoid this, create the remote_tmp dir with the correct permissions manually
+
+2025-12-02 17:22:33,621 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:22:50,842 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Add Docker repository] ************************************
+2025-12-02 17:22:50,843 p=372931 u=nayo n=ansible WARNING| [WARNING]: Deprecation warnings can be disabled by setting `deprecation_warnings=False` in ansible.cfg.
+
+2025-12-02 17:22:50,844 p=372931 u=nayo n=ansible INFO| [DEPRECATION WARNING]: INJECT_FACTS_AS_VARS default to `True` is deprecated, top-level facts will not be auto injected after the change. This feature will be removed from ansible-core version 2.24.
+Origin: /home/nayo/stage-6/DevOps-Stage-6/infra/ansible/roles/dependencies/tasks/main.yaml:15:11
+
+13 - name: Add Docker repository
+14   apt_repository:
+15     repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+             ^ column 11
+
+Use `ansible_facts["fact_name"]` (no `ansible_` prefix) instead.
+
+
+2025-12-02 17:22:50,844 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:12,905 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Install Docker] *******************************************
+2025-12-02 17:23:12,906 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:15,871 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Ensure Docker service is started and enabled] *************
+2025-12-02 17:23:15,872 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:23:18,106 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Add ubuntu user to docker group] **************************
+2025-12-02 17:23:18,107 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:22,341 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Install system packages required for Traefik and Git] *****
+2025-12-02 17:23:22,341 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:23:26,089 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Install Docker Compose (standalone binary)] ***************
+2025-12-02 17:23:26,090 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:33,103 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Install Python Docker module] *****************************
+2025-12-02 17:23:33,104 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:36,313 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Verify Docker installation] *******************************
+2025-12-02 17:23:36,313 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:23:36,354 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Display Docker version] ***********************************
+2025-12-02 17:23:36,355 p=372931 u=nayo n=ansible INFO| ok: [localhost] => {
+    "msg": "Docker installed: Docker version 29.1.1, build 0aedba5"
+}
+2025-12-02 17:23:39,230 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Verify Docker Compose installation] ***********************
+2025-12-02 17:23:39,231 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:23:39,272 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Display Docker Compose version] ***************************
+2025-12-02 17:23:39,273 p=372931 u=nayo n=ansible INFO| ok: [localhost] => {
+    "msg": "Docker Compose installed: Docker Compose version v2.40.3"
+}
+2025-12-02 17:23:42,635 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Verify ubuntu user can run docker commands] ***************
+2025-12-02 17:23:42,635 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:23:42,677 p=372931 u=nayo n=ansible INFO| TASK [dependencies : Display docker ps output] *********************************
+2025-12-02 17:23:42,678 p=372931 u=nayo n=ansible INFO| ok: [localhost] => {
+    "msg": "Docker ps output: CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES"
+}
+2025-12-02 17:23:44,915 p=372931 u=nayo n=ansible INFO| TASK [deploy : Ensure application directory exists] ****************************
+2025-12-02 17:23:44,915 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:47,907 p=372931 u=nayo n=ansible INFO| TASK [deploy : Check if repository exists] *************************************
+2025-12-02 17:23:47,908 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:23:51,896 p=372931 u=nayo n=ansible INFO| TASK [deploy : Clone application repository] ***********************************
+2025-12-02 17:23:51,897 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:57,822 p=372931 u=nayo n=ansible INFO| TASK [deploy : Create .env file from template] *********************************
+2025-12-02 17:23:57,822 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:23:59,589 p=372931 u=nayo n=ansible INFO| TASK [deploy : Create Traefik certificates directory] **************************
+2025-12-02 17:23:59,589 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:24:01,875 p=372931 u=nayo n=ansible INFO| TASK [deploy : Stop existing containers] ***************************************
+2025-12-02 17:24:01,876 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:24:10,340 p=372931 u=nayo n=ansible INFO| TASK [deploy : Pull latest images from Docker Hub] *****************************
+2025-12-02 17:24:10,341 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:27:30,636 p=372931 u=nayo n=ansible INFO| TASK [deploy : Start Docker containers] ****************************************
+2025-12-02 17:27:30,636 p=372931 u=nayo n=ansible INFO| changed: [localhost]
+2025-12-02 17:27:38,299 p=372931 u=nayo n=ansible INFO| TASK [deploy : Wait for services to be healthy] ********************************
+2025-12-02 17:27:38,301 p=372931 u=nayo n=ansible INFO| ok: [localhost] => (item=80)
+2025-12-02 17:27:45,078 p=372931 u=nayo n=ansible INFO| ok: [localhost] => (item=443)
+2025-12-02 17:27:47,899 p=372931 u=nayo n=ansible INFO| TASK [deploy : Check running containers] ***************************************
+2025-12-02 17:27:47,900 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:27:47,942 p=372931 u=nayo n=ansible INFO| TASK [deploy : Display container status] ***************************************
+2025-12-02 17:27:47,944 p=372931 u=nayo n=ansible INFO| ok: [localhost] => {
+    "msg": [
+        "NAME                          IMAGE                       COMMAND                  SERVICE                 CREATED          STATUS                    PORTS",
+        "app-auth-api-1                app-auth-api                \"./auth-api\"             auth-api                52 seconds ago   Up 23 seconds (healthy)   8081/tcp",
+        "app-frontend-1                app-frontend                \"/docker-entrypoint.…\"   frontend                52 seconds ago   Up 17 seconds (healthy)   80/tcp",
+        "app-log-message-processor-1   app-log-message-processor   \"python main.py\"         log-message-processor   52 seconds ago   Up 45 seconds (healthy)   ",
+        "app-redis-queue-1             redis:7-alpine              \"docker-entrypoint.s…\"   redis-queue             52 seconds ago   Up 51 seconds (healthy)   6379/tcp",
+        "app-todos-api-1               app-todos-api               \"docker-entrypoint.s…\"   todos-api               52 seconds ago   Up 45 seconds (healthy)   8082/tcp",
+        "app-users-api-1               app-users-api               \"dumb-init -- sh -c …\"   users-api               52 seconds ago   Up 51 seconds (healthy)   8083/tcp",
+        "traefik                       traefik:v3.0                \"/entrypoint.sh trae…\"   traefik                 52 seconds ago   Up 51 seconds             0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp"
+    ]
+}
+2025-12-02 17:27:50,260 p=372931 u=nayo n=ansible INFO| TASK [deploy : Get Docker container logs (last 20 lines)] **********************
+2025-12-02 17:27:50,261 p=372931 u=nayo n=ansible INFO| ok: [localhost]
+2025-12-02 17:27:50,310 p=372931 u=nayo n=ansible INFO| TASK [deploy : Display recent logs] ********************************************
+2025-12-02 17:27:50,313 p=372931 u=nayo n=ansible INFO| ok: [localhost] => {
+    "msg": [
+        "auth-api-1   | {\"time\":\"2025-12-02T16:27:24.105592691Z\",\"level\":\"INFO\",\"prefix\":\"echo\",\"file\":\"main.go\",\"line\":\"58\",\"message\":\"Zipkin URL was not provided, tracing is not initialised\"}",
+        "auth-api-1   | ",
+        "auth-api-1   |    ____    __",
+        "auth-api-1   |   / __/___/ /  ___",
+        "auth-api-1   |  / _// __/ _ \\/ _ \\",
+        "auth-api-1   | /___/\\__/_//_/\\___/ v3.3.10-dev",
+        "auth-api-1   | High performance, minimalist Go web framework",
+        "auth-api-1   | https://echo.labstack.com",
+        "auth-api-1   | ____________________________________O/_______",
+        "auth-api-1   |                                     O\\",
+        "auth-api-1   | ⇨ http server started on [::]:8081",
+        "auth-api-1   | {\"time\":\"2025-12-02T16:27:29.270852585Z\",\"id\":\"\",\"remote_ip\":\"::1\",\"host\":\"localhost:8081\",\"method\":\"GET\",\"uri\":\"/health\",\"user_agent\":\"Wget/1.25.0\",\"status\":200,\"error\":\"\",\"latency\":21956115,\"latency_human\":\"21.956115ms\",\"bytes_in\":0,\"bytes_out\":21}",
+        "users-api-1  | 2025-12-02 16:27:18.490  INFO [users-api,,,] 7 --- [           main] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped \"{[/users/{username}],methods=[GET]}\" onto public com.elgris.usersapi.models.User com.elgris.usersapi.api.UsersController.getUser(javax.servlet.http.HttpServletRequest,java.lang.String)",
+        "users-api-1  | 2025-12-02 16:27:18.497  INFO [users-api,,,] 7 --- [           main] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped \"{[/error],produces=[text/html]}\" onto public org.springframework.web.servlet.ModelAndView org.springframework.boot.autoconfigure.web.BasicErrorController.errorHtml(javax.servlet.http.HttpServletRequest,javax.servlet.http.HttpServletResponse)",
+        "users-api-1  | 2025-12-02 16:27:18.498  INFO [users-api,,,] 7 --- [           main] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped \"{[/error]}\" onto public org.springframework.http.ResponseEntity<java.util.Map<java.lang.String, java.lang.Object>> org.springframework.boot.autoconfigure.web.BasicErrorController.error(javax.servlet.http.HttpServletRequest)",
+        "users-api-1  | 2025-12-02 16:27:18.764  INFO [users-api,,,] 7 --- [           main] o.s.w.s.handler.SimpleUrlHandlerMapping  : Mapped URL path [/webjars/**] onto handler of type [class org.springframework.web.servlet.resource.ResourceHttpRequestHandler]",
+        "users-api-1  | 2025-12-02 16:27:18.765  INFO [users-api,,,] 7 --- [           main] o.s.w.s.handler.SimpleUrlHandlerMapping  : Mapped URL path [/**] onto handler of type [class org.springframework.web.servlet.resource.ResourceHttpRequestHandler]",
+        "users-api-1  | 2025-12-02 16:27:18.940  INFO [users-api,,,] 7 --- [           main] o.s.w.s.handler.SimpleUrlHandlerMapping  : Mapped URL path [/**/favicon.ico] onto handler of type [class org.springframework.web.servlet.resource.ResourceHttpRequestHandler]",
+        "users-api-1  | 2025-12-02 16:27:21.417  INFO [users-api,,,] 7 --- [           main] o.s.s.c.ThreadPoolTaskScheduler          : Initializing ExecutorService ",
+        "users-api-1  | 2025-12-02 16:27:21.668  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Registering beans for JMX exposure on startup",
+        "users-api-1  | 2025-12-02 16:27:21.689  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Bean with name 'configurationPropertiesRebinder' has been autodetected for JMX exposure",
+        "users-api-1  | 2025-12-02 16:27:21.691  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Bean with name 'environmentManager' has been autodetected for JMX exposure",
+        "users-api-1  | 2025-12-02 16:27:21.695  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Bean with name 'refreshScope' has been autodetected for JMX exposure",
+        "users-api-1  | 2025-12-02 16:27:21.700  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Located managed bean 'environmentManager': registering with JMX server as MBean [org.springframework.cloud.context.environment:name=environmentManager,type=EnvironmentManager]",
+        "users-api-1  | 2025-12-02 16:27:21.729  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Located managed bean 'refreshScope': registering with JMX server as MBean [org.springframework.cloud.context.scope.refresh:name=refreshScope,type=RefreshScope]",
+        "users-api-1  | 2025-12-02 16:27:21.750  INFO [users-api,,,] 7 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Located managed bean 'configurationPropertiesRebinder': registering with JMX server as MBean [org.springframework.cloud.context.properties:name=configurationPropertiesRebinder,context=6276ae34,type=ConfigurationPropertiesRebinder]",
+        "users-api-1  | 2025-12-02 16:27:22.050  INFO [users-api,,,] 7 --- [           main] s.b.c.e.t.TomcatEmbeddedServletContainer : Tomcat started on port(s): 8083 (http)",
+        "users-api-1  | 2025-12-02 16:27:22.062  INFO [users-api,,,] 7 --- [           main] com.elgris.usersapi.UsersApiApplication  : Started UsersApiApplication in 22.146 seconds (JVM running for 25.468)",
+        "users-api-1  | 2025-12-02 16:27:22.640  INFO [users-api,,,] 7 --- [nio-8083-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring FrameworkServlet 'dispatcherServlet'",
+        "users-api-1  | 2025-12-02 16:27:22.640  INFO [users-api,,,] 7 --- [nio-8083-exec-1] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization started",
+        "users-api-1  | 2025-12-02 16:27:22.720  INFO [users-api,,,] 7 --- [nio-8083-exec-1] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization completed in 80 ms",
+        "users-api-1  | 2025-12-02 16:27:22.903  INFO [users-api,661fe1ca0f76eef8,661fe1ca0f76eef8,false] 7 --- [nio-8083-exec-1] o.h.h.i.QueryTranslatorFactoryInitiator  : HHH000397: Using ASTQueryTranslatorFactory",
+        "redis-queue-1  | 1:C 02 Dec 2025 16:26:56.818 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.",
+        "redis-queue-1  | 1:C 02 Dec 2025 16:26:56.819 # WARNING Your system is configured to use the 'xen' clocksource which might lead to degraded performance. Check the result of the [slow-clocksource] system check: run 'redis-server --check-system' to check if the system's clocksource isn't degrading performance.",
+        "redis-queue-1  | 1:C 02 Dec 2025 16:26:56.819 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo",
+        "redis-queue-1  | 1:C 02 Dec 2025 16:26:56.819 * Redis version=7.4.7, bits=64, commit=00000000, modified=0, pid=1, just started",
+        "redis-queue-1  | 1:C 02 Dec 2025 16:26:56.819 * Configuration loaded",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.820 * Increased maximum number of open files to 10032 (it was originally set to 1024).",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.820 * monotonic clock: POSIX clock_gettime",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.823 * Running mode=standalone, port=6379.",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.823 * Server initialized",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.829 * Creating AOF base file appendonly.aof.1.base.rdb on server start",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.835 * Creating AOF incr file appendonly.aof.1.incr.aof on server start",
+        "redis-queue-1  | 1:M 02 Dec 2025 16:26:56.835 * Ready to accept connections tcp",
+        "traefik        | \u001b[90m2025-12-02T16:27:15Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:15Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 4.507436561s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:19Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:19Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 15.131957455s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:34Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:34Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 261.276408ms \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:35Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:35Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 777.043354ms \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:35Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:35Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 1.072469417s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:37Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:37Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 2.227656041s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:39Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:39Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 1.543826797s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:40Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:40Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 2.414576863s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:43Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:43Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 6.530571507s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:49Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Failed to retrieve information of the docker client and server host \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "traefik        | \u001b[90m2025-12-02T16:27:49Z\u001b[0m \u001b[1m\u001b[31mERR\u001b[0m\u001b[0m Provider error, retrying in 6.302522001s \u001b[36merror=\u001b[0m\u001b[31m\"Error response from daemon: client version 1.24 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version\"\u001b[0m \u001b[36mproviderName=\u001b[0mdocker",
+        "todos-api-1    |     at emitErrorCloseNT (internal/streams/destroy.js:74:3)",
+        "todos-api-1    |     at /app/node_modules/async-listener/glue.js:188:31",
+        "todos-api-1    |     at processTicksAndRejections (internal/process/task_queues.js:82:21) {",
+        "todos-api-1    |   type: 'system',",
+        "todos-api-1    |   errno: 'ECONNREFUSED',",
+        "todos-api-1    |   code: 'ECONNREFUSED'",
+        "todos-api-1    | }",
+        "todos-api-1    | Error sending Zipkin data FetchError: request to http://127.0.0.1:9411/api/v2/spans failed, reason: connect ECONNREFUSED 127.0.0.1:9411",
+        "todos-api-1    |     at ClientRequest.<anonymous> (/app/node_modules/node-fetch/index.js:133:11)",
+        "todos-api-1    |     at ClientRequest.emit (events.js:400:28)",
+        "todos-api-1    |     at Socket.socketErrorListener (_http_client.js:475:9)",
+        "todos-api-1    |     at Socket.emit (events.js:400:28)",
+        "todos-api-1    |     at emitErrorNT (internal/streams/destroy.js:106:8)",
+        "todos-api-1    |     at emitErrorCloseNT (internal/streams/destroy.js:74:3)",
+        "todos-api-1    |     at /app/node_modules/async-listener/glue.js:188:31",
+        "todos-api-1    |     at processTicksAndRejections (internal/process/task_queues.js:82:21) {",
+        "todos-api-1    |   type: 'system',",
+        "todos-api-1    |   errno: 'ECONNREFUSED',",
+        "todos-api-1    |   code: 'ECONNREFUSED'",
+        "todos-api-1    | }",
+        "frontend-1     | ZIPKIN_URL is empty, creating config without zipkin location block",
+        "log-message-processor-1  | 127.0.0.1 - - [02/Dec/2025 16:27:07] \"GET /health HTTP/1.1\" 200 -",
+        "log-message-processor-1  | 127.0.0.1 - - [02/Dec/2025 16:27:38] \"GET /health HTTP/1.1\" 200 -"
+    ]
+}
+2025-12-02 17:27:50,372 p=372931 u=nayo n=ansible INFO| TASK [Display deployment information] ******************************************
+2025-12-02 17:27:50,373 p=372931 u=nayo n=ansible INFO| [DEPRECATION WARNING]: INJECT_FACTS_AS_VARS default to `True` is deprecated, top-level facts will not be auto injected after the change. This feature will be removed from ansible-core version 2.24.
+Origin: /home/nayo/stage-6/DevOps-Stage-6/infra/ansible/playbook.yml:34:13
+
+32         msg:
+33           - "✅ Deployment completed successfully!"
+34           - "Server IP: {{ ansible_default_ipv4.address }}"
+               ^ column 13
+
+Use `ansible_facts["fact_name"]` (no `ansible_` prefix) instead.
+
+
+2025-12-02 17:27:50,374 p=372931 u=nayo n=ansible INFO| ok: [localhost] => {
+    "msg": [
+        "✅ Deployment completed successfully!",
+        "Server IP: 172.31.3.131",
+        "Application URL: https://nayo.katonytech.com",
+        "SSH: ssh -i ~/.ssh/id_rsa ubuntu@172.31.3.131"
+    ]
+}
+2025-12-02 17:27:50,376 p=372931 u=nayo n=ansible INFO| PLAY RECAP *********************************************************************
+2025-12-02 17:27:50,376 p=372931 u=nayo n=ansible INFO| localhost                  : ok=32   changed=15   unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   

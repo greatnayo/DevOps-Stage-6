@@ -31,12 +31,10 @@ module.exports = {
       "/login": {
         target: process.env.AUTH_API_ADDRESS || "http://127.0.0.1:8081",
         secure: false,
-        changeOrigin: true,
       },
       "/todos": {
         target: process.env.TODOS_API_ADDRESS || "http://127.0.0.1:8082",
         secure: false,
-        changeOrigin: true,
       },
       "/zipkin": {
         target: process.env.ZIPKIN_URL || "http://127.0.0.1:9411/api/v2/spans",
