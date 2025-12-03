@@ -1,7 +1,0 @@
----
-# roles/dependencies/defaults/main.yml
-# Default variables for dependencies role
-
-force_docker_compose_update: false
-docker_network_name: app-network
-traefik_email: admin@example.com

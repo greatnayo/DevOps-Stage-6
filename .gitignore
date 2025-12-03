@@ -1,0 +1,85 @@
+# .gitignore
+# Ignore node_modules directory
+node_modules/   
+# Ignore log files
+*.log
+# Ignore environment variable files
+.env
+# Ignore build output
+dist/
+build/
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+# Ignore IDE specific files
+.vscode/
+.idea/
+# Ignore temporary files
+*.tmp
+*.swp
+# Ignore coverage reports
+coverage/
+# Ignore package lock files
+package-lock.json
+yarn.lock               
+# Ignore compiled files
+*.class
+*.obj
+*.exe
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+# Ignore Java compiled files
+*.jar
+# Ignore Ruby specific files
+*.gem
+.bundle/
+# Ignore log directories
+logs/       
+# Ignore database files
+*.sqlite
+*.db    
+# Ignore backup files
+*~.bak
+*.backup    
+# Ignore media files
+*.mp4
+*.mp3
+*.avi
+*.mov
+# Ignore image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+# Ignore document files
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+# Ignore temporary internet files
+*.cache
+*.tmp
+# Ignore system files
+ehthumbs.db
+Desktop.ini
+# Ignore compiled CSS files
+*.css.map
+# Ignore SASS cache files
+.sass-cache/
+# Ignore TypeScript compiled files
+*.tsbuildinfo
+# Ignore log archives
+*.zip
+*.tar.gz
+*.rar
+# Ignore virtual environment directories
+venv/
+.env/
+# Ignore Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
